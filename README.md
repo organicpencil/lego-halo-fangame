@@ -20,7 +20,7 @@ git submodule update --init --recursive
 To play: Open Game.blend (or a level directly from the scenes folder) and press "P" with the mouse in the 3D view.
 
 **Multiplayer**  
-Player 2 can drop in with a controller by pressing start.  Due to engine limitations the controller has to be plugged in before launching the game.
+Player 2 can drop in with a controller by pressing start.
 
 Online multiplayer does exist but is currently limited in functionality.
 
