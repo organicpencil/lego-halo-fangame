@@ -1,10 +1,10 @@
 THIS IS A FAN GAME.  We are not associated with Microsoft (owners of the Halo franchise) or The Lego Group.
 
 **Standalone binaries**  
-<add me>
+TODO
 
 **Running from source**  
-First [obtain a copy of Blender 2.78](http://download.blender.org/release/Blender2.78/)
+First [obtain a recent build of UPBGE](https://download.upbge.org/)
 
 Then clone the repository:
 ```
