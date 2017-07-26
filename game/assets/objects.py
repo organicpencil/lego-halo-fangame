@@ -1,5 +1,6 @@
 import bge
 from netplay import bitstring, component
+import utils
 
 
 class Controllable(component.GameObject):
@@ -13,40 +14,39 @@ class Controllable(component.GameObject):
     def set_keyboard_input(self):
         keystate = self.keystate
 
-        held = bge.logic.KX_INPUT_ACTIVE
-        events = bge.logic.keyboard.events
+        held = utils.key_held
 
-        if events[bge.events.WKEY] == held:
+        if held(bge.events.WKEY):
             keystate.set(1, (0,))
         else:
             keystate.set(0, (0,))
 
-        if events[bge.events.SKEY] == held:
+        if held(bge.events.SKEY):
             keystate.set(1, (1,))
         else:
             keystate.set(0, (1,))
 
-        if events[bge.events.AKEY] == held:
+        if held(bge.events.AKEY):
             keystate.set(1, (2,))
         else:
             keystate.set(0, (2,))
 
-        if events[bge.events.DKEY] == held:
+        if held(bge.events.DKEY):
             keystate.set(1, (3,))
         else:
             keystate.set(0, (3,))
 
-        if events[bge.events.SPACEKEY] == held:
+        if held(bge.events.SPACEKEY):
             keystate.set(1, (4,))
         else:
             keystate.set(0, (4,))
 
-        if events[bge.events.EKEY] == held:
+        if held(bge.events.EKEY):
             keystate.set(1, (5,))
         else:
             keystate.set(0, (5,))
 
-        if events[bge.events.FKEY] == held:
+        if held(bge.events.FKEY):
             keystate.set(1, (6,))
         else:
             keystate.set(0, (6,))
