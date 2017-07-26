@@ -1193,7 +1193,8 @@ def register(cont):
                     print ("No groups with player property")
 
     for m in list(group.groupMembers):
-        m.endObject()
+        if m.parent is None:
+            m.endObject()
 
     if not bge.logic.netplay.server:
         group.endObject()

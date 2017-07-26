@@ -110,7 +110,8 @@ def register(cont):
         Stud(None, ref=None, args=args)
 
     for m in list(group.groupMembers):
-        m.endObject()
+        if m.parent is None:
+            m.endObject()
     group.endObject()
 
 
