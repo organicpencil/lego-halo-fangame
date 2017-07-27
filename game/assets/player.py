@@ -9,6 +9,7 @@ from objects import Controllable
 
 
 class Chief(Controllable):
+    icon = 'icon-chief'
     obj = 'minifig'
     setuptable = 'ChiefSetup'
     body = 'chief-body'
@@ -159,6 +160,7 @@ class Chief(Controllable):
             fake.worldPosition = pos
             fake['p'] = '1'
             fake.scaling = [0.2, 0.2, 0.2]
+            hud.objects['p1_studcolor'].replaceMesh(obj)
 
             host = bge.logic.netplay
             host.components[stud_id] = None
@@ -880,6 +882,7 @@ class Chief(Controllable):
 
 
 class Marine(Chief):
+    icon = 'icon-marine'
     obj = 'minifig'
     setuptable = 'MarineSetup'
     body = 'marine-body'
@@ -894,6 +897,7 @@ class Marine(Chief):
 
 
 class Arbiter(Chief):
+    icon = 'icon-arbiter'
     obj = 'minifig'
     setuptable = 'ArbiterSetup'
     body = 'arbiter-body'
@@ -908,6 +912,7 @@ class Arbiter(Chief):
 
 
 class Elite(Chief):
+    icon = 'icon-elite'
     obj = 'minifig'
     setuptable = 'EliteSetup'
     body = 'elite-body'
@@ -922,6 +927,7 @@ class Elite(Chief):
 
 
 class Johnson(Chief):
+    icon = 'icon-johnson'
     obj = 'minifig'
     setuptable = 'JohnsonSetup'
     body = 'johnson-body'
@@ -936,6 +942,7 @@ class Johnson(Chief):
 
 
 class Keyes(Chief):
+    icon = 'icon-keyes'
     obj = 'minifig'
     setuptable = 'KeyesSetup'
     body = 'keyes-body'
@@ -950,6 +957,7 @@ class Keyes(Chief):
 
 
 class Bluecrew(Chief):
+    icon = 'icon-crew'
     obj = 'minifig'
     setuptable = 'BluecrewSetup'
     body = 'bluecrew-body'
@@ -964,6 +972,7 @@ class Bluecrew(Chief):
 
 
 class Orangecrew(Chief):
+    icon = 'icon-crew'
     obj = 'minifig'
     setuptable = 'OrangecrewSetup'
     body = 'orangecrew-body'
@@ -978,6 +987,7 @@ class Orangecrew(Chief):
 
 
 class Yellowcrew(Chief):
+    icon = 'icon-crew'
     obj = 'minifig'
     setuptable = 'YellowcrewSetup'
     body = 'yellowcrew-body'
@@ -992,6 +1002,7 @@ class Yellowcrew(Chief):
 
 
 class Redcrew(Chief):
+    icon = 'icon-crew'
     obj = 'minifig'
     setuptable = 'RedcrewSetup'
     body = 'redcrew-body'
@@ -1006,6 +1017,7 @@ class Redcrew(Chief):
 
 
 class Graycrew(Chief):
+    icon = 'icon-crew'
     obj = 'minifig'
     setuptable = 'GraycrewSetup'
     body = 'graycrew-body'
@@ -1020,6 +1032,7 @@ class Graycrew(Chief):
 
 
 class Grunt(Chief):
+    icon = 'icon-grunt'
     obj = 'grunt'
     setuptable = 'GruntSetup'
     parts = 'grunt-parts'
@@ -1052,6 +1065,7 @@ class Grunt(Chief):
 
 
 class Jackal(Grunt):
+    icon = 'icon-jackal'
     obj = 'jackal'
     setuptable = 'JackalSetup'
     parts = 'jackal-parts'
@@ -1092,6 +1106,7 @@ class Jackal(Grunt):
 
 
 class Hunter(Grunt):
+    icon = 'icon-hunter'
     obj = 'hunter'
     setuptable = 'HunterSetup'
     parts = 'hunter-parts'

@@ -117,7 +117,7 @@ def register(cont):
 
 def fake(cont):
     owner = cont.owner
-    p = bge.logic.getCurrentScene().objects['stud-counter' + owner['p']]
+    p = bge.logic.getCurrentScene().objects['p' + owner['p'] + '_studcolor']
     owner.worldPosition = owner.worldPosition.lerp(p.worldPosition, 0.05)
     if owner.getDistanceTo(p) < 0.1:
         owner.endObject()
