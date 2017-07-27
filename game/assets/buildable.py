@@ -1,12 +1,12 @@
 import random
-import bge
 
 
-class Destroyed:
+class Buildable:
     def __init__(self, cont):
         self.owner = owner = cont.owner
         self.parts = []
         self.rebuild = 0
+        self.build = False
 
         for c in list(owner.children):
             self.parts.append(c)
@@ -19,10 +19,15 @@ class Destroyed:
         self.parts.sort(key=lambda x: x.worldPosition[2])
 
     def update(self):
-        events = bge.logic.keyboard.events
-        held = bge.logic.KX_INPUT_ACTIVE
+        owner = self.owner
+        group = owner.groupObject
 
-        if events[bge.events.SPACEKEY] == held:
+        triggered = False
+        if group is not None:
+            triggered = group.get('build', False)
+
+        if triggered or self.build:
+            self.build = False
             parts = self.parts
             if len(parts) > self.rebuild:
                 c = parts[self.rebuild]
@@ -39,14 +44,14 @@ class Destroyed:
                     self.rebuild += 1
 
             else:
-                self.owner.scene.addObject('Warthog')
-                self.owner.endObject()
+                owner.scene.addObject(owner['object'])
+                owner.endObject()
 
 
 def main(cont):
     owner = cont.owner
-    d = owner.get('destroyed', None)
-    if d is None:
-        owner['destroyed'] = Destroyed(cont)
+    b = owner.get('buildable', None)
+    if b is None:
+        owner['buildable'] = Buildable(cont)
     else:
-        d.update()
+        b.update()

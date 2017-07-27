@@ -584,6 +584,7 @@ class Chief(Controllable):
         if keys[5] == '1':
             # Interact
             # Check for something
+            # TODO: Refactor this bit of code. Doesn't always work.
             v = mathutils.Vector((0.0, 1.0, 0.0))
             v = v * owner.worldOrientation.inverted()
             v = v + owner.worldPosition
@@ -591,6 +592,14 @@ class Chief(Controllable):
             if hitOb is not None:
                 if self.enter_vehicle(hitOb['vehicle']):
                     return
+
+            # Check for nearby buildables (slooooow)
+            for ob in bge.logic.getCurrentScene().objects:
+                if 'buildable' in ob:
+                    dist = owner.getDistanceTo(ob)
+                    if dist < 10.0:
+                        ob['buildable'].build = True
+                        # TODO: Play build animation
 
         # Animation
         if move.length:
