@@ -1,10 +1,10 @@
+import logging
 import random
 import bge
 import mathutils
 import utils
 import weapons
-from netplay import packer, component, bitstring
-from stud import DynamicStud, SCORES
+from stud import STUDS, SCORES
 from objects import Controllable
 
 
@@ -19,9 +19,9 @@ class Chief(Controllable):
     hp = 4
     shield = 4
 
-    def start(self):
-        Controllable.start(self)
-
+    def __init__(self, owner):
+        Controllable.__init__(self, owner)
+        self.player_id = None
         self.speed = 12.0
 
         # Combat
@@ -48,6 +48,7 @@ class Chief(Controllable):
         self.vehicle = None
         self.disabled = False
         self.seat = None
+        self.enter_timer = 30
 
         # Used to face movement direction
         self.move_vector = mathutils.Vector()
@@ -56,7 +57,36 @@ class Chief(Controllable):
         self.jump_timer = 0
         self.on_ground = 0
 
+        ## Temp - assign a random weapon
+        if self.weapon is None:
+            weps = ["AssaultRifle", "PlasmaRifle", "Needler", "Sniper"]
+            self.set_weapon(random.choice(weps))
+
+        #######################################################################
+        ### Group configuration ###############################################
+        #######################################################################
+        group = owner.groupObject
+        if group is None:
+            raise ValueError('Minifigs can only be spawned via group instance')
+
+        #self.set_weapon(group.get('weapon', None))
+        self.team = group.get('team', self.team)
+        self.control_id = group.get('control_id', 0)
+        self.player_id = group.get('player', None)
+
+        if self.control_id or self.player_id == 0:
+            # Player ID must be uniquely defined in editor
+            # 0 = player 1, 1 = player 2, etc
+            self.become_player(self.player_id)
+        else:
+            self.become_ai()
+
+        #######################################################################
+        #######################################################################
+        #######################################################################
+
     def setup_object(self):
+        # Replace owner
         self.armature = self.owner.children['minifig-armature']
 
         #self.head = self.owner.children['minifig-cam-center']
@@ -65,9 +95,21 @@ class Chief(Controllable):
 
         self.lefthand = self.armature.children['minifig-lefthand']
         self.righthand = self.armature.children['minifig-righthand']
-        self.hatempty = self.armature.children['minifig-hat']
-        self.barrel = self.owner.children['minifig-barrel']
+        #self.hatempty = self.armature.children['minifig-hat']
 
+        if self.body in ['chief-body', 'arbiter-body', 'elite-body']:
+            self.shield_ob = self.armature.children['minifig-shield']
+            if self.body == 'chief-body':
+                self.shield_ob.replaceMesh('energy_shield')
+            else:
+                self.shield_ob.replaceMesh('energy_shield_elite')
+        else:
+            try:
+                self.armature.children['minifig-shield'].endObject()
+            except:
+                pass
+
+        """
         default = self.armature.children.get('minifig-default', None)
         # Replace default with correct mesh
         default.replaceMesh(self.body)
@@ -86,6 +128,7 @@ class Chief(Controllable):
                 self.armature.children['minifig-shield'].endObject()
             except:
                 pass
+        """
 
         """
         # Destroy the extra group mesh if placed in editor
@@ -97,21 +140,9 @@ class Chief(Controllable):
                 group.groupMembers[self.hat].endObject()
         """
 
-    def start_client(self):
-        return
-
-    def start_server(self, args):
-        self.controlled = 0
-        # Start with gun
-        if self.weapon is None:
-            weps = ["AssaultRifle", "PlasmaRifle", "Needler", "Sniper"]
-            self.setWeapon(random.choice(weps))
-
-        self.enter_timer = 30
-
     def studcollision(self, other, point, normal):
         # Only local players do stud detection
-        if 'stud' in other and '_component' in other:
+        if 'stud' in other:
             if len(bge.logic.getSceneList()) == 1:
                 # Technically possible to collide with stud on first frame
                 return
@@ -120,61 +151,33 @@ class Chief(Controllable):
             bge.logic.getCurrentScene().addObject('sound-coin')
 
             # Remove the stud
-            comp = other['_component']
-
-            table = packer.Table('StudCollision')
-            table.set('id', self.net_id)
-            table.set('stud_id', comp.net_id)
-
-            if bge.logic.netplay.server:
-                # Non-dedicated server
-                self.StudCollision(table)
-            else:
-                # Client
-                comp.owner.endObject()
-                comp.owner = None
-
-                buff = packer.to_bytes(table)
-                bge.logic.netplay.send_reliable(buff)
-
-        else:
-            # Set ground timer
-            if normal[2] < -0.75:
-                self.on_ground = 2
-
-    def StudCollision(self, table):
-        # Server-only
-        stud_id = table.get('stud_id')
-        comp = bge.logic.netplay.components[stud_id]
-        if comp is not None:
             # Add score
             hud = bge.logic.getSceneList()[1]
-            hud.objects['p1_studs']['Text'] += SCORES[comp.owner['stud']]
+            hud.objects['p1_studs']['Text'] += SCORES[other['stud']]
 
             # Play pickup effect
-            pos = bge.logic.getCurrentScene().active_camera.getVectTo(comp.owner.worldPosition)[2]
+            pos = bge.logic.getCurrentScene().active_camera.getVectTo(other.worldPosition)[2]
             pos = pos * hud.active_camera.worldOrientation.inverted()
             #pos += hud.active_camera.worldPosition
-            obj = comp.owner.name.split('-dynamic')[0]
+            obj = other.name.split('-dynamic')[0]
             fake = hud.addObject(obj + '-fake')
             fake.worldPosition = pos
             fake['p'] = '1'
             fake.scaling = [0.2, 0.2, 0.2]
             hud.objects['p1_studcolor'].replaceMesh(obj)
 
-            host = bge.logic.netplay
-            host.components[stud_id] = None
-            comp.owner.endObject()
-            table = packer.Table('Destroy')
-            table.set('id', comp.net_id)
-            buff = packer.to_bytes(table)
+            other.endObject()
+            # Workaround for delayed endObject bug
+            del other['stud']
 
-            for client in host.clients:
-                if client is not None:
-                    client.send_reliable(buff)
+        else:
+            # Set ground timer
+            if normal[2] < -0.75:
+                self.on_ground = 2
 
     def takeDamage(self, data):
         if self.hp > 0:
+            owner = self.owner
             damage = data.get('damage', 0)
 
             if self.shield is not None:
@@ -195,8 +198,7 @@ class Chief(Controllable):
             if self.hp < 0:
                 self.hp = 0
 
-            #if self.controlled:
-            if self in bge.logic.players:
+            if self.player_id is not None:
                 bge.logic.game.refresh_hud()
 
             if self.hp == 0:
@@ -204,161 +206,158 @@ class Chief(Controllable):
                 self.enter_timer = 0
                 self.exit_vehicle()
 
-                host = bge.logic.netplay
-                if host.server:
-                    host.components[self.net_id] = None
+                # Spawn parts and end
+                ob = data.get('ob', self.owner)
+                if self.parts is not None:
+                    parts = owner.scene.addObject(self.parts, owner)
+                    for c in list(parts.children):
+                        c.removeParent()
+                        v = ob.getVectTo(c)[1]
+                        c.applyForce(v * (random.random() * 1000.0 * damage), False)
 
-                    table = packer.Table('Destroy')
-                    table.set('id', self.net_id)
-                    buff = packer.to_bytes(table)
-
-                    for client in host.clients:
-                        if client is not None:
-                            client.send_reliable(buff)
-                        host = bge.logic.netplay
-
-                    # Spawn parts and end
-                    ob = data.get('ob', self.owner)
-                    if self.parts is not None:
-                        parts = self.owner.scene.addObject(self.parts, self.owner)
-                        for c in list(parts.children):
-                            c.removeParent()
-                            v = ob.getVectTo(c)[1]
-                            c.applyForce(v * (random.random() * 1000.0 * damage), False)
-
-                            factor = 1.0
-                            if random.random() > 0.5:
-                                factor = -1.0
-                            v = mathutils.Vector()
-                            v[0] = random.random() * 100.0 * factor
-                            v[1] = random.random() * 100.0 * factor
-                            v[2] = random.random() * 100.0 * factor
-                            c.applyTorque(v, False)
+                        factor = 1.0
+                        if random.random() > 0.5:
+                            factor = -1.0
+                        v = mathutils.Vector()
+                        v[0] = random.random() * 100.0 * factor
+                        v[1] = random.random() * 100.0 * factor
+                        v[2] = random.random() * 100.0 * factor
+                        c.applyTorque(v, False)
 
                     # Set group properties if applicable
-                    if 'group' in self.owner:
-                        self.owner['group']['dead'] = True
+                    # There should always be a group object now that networking
+                    # has been nuked. Only delete if the group has no props.
+                    ## TODO - Also check for logic bricks before deleting
+                    group = owner.groupObject
+                    if len(group.getPropertyNames()):
+                        group['dead'] = True
+                    else:
+                        group.endObject()
 
-                    old_ai = bge.logic.game.ai.getAIController(self)
-                    squad = list(old_ai.squad)
-                    if len(squad):
-                        for s in squad:
-                            s.setLeader(None)
+                    if self.player_id is None:
+                        # Only do AI squads here.
+                        # Player squads will wait for respawn instead
+                        old_ai = bge.logic.game.ai.getAIController(self)
+                        squad = list(old_ai.squad)
+                        if len(squad):
+                            for s in squad:
+                                s.setLeader(None)
 
+                    ## TODO - Unregister should be doing setLeader(None)
                     bge.logic.game.ai.unregister(self)
 
-                    #if self.controlled:
-                    if self in bge.logic.players:
-                        # Drop some studs
-                        hud = bge.logic.getSceneList()[1]
-                        stud_score = int(hud.objects['p1_studs']['Text'])
-                        lost_stud_score = 0
-                        for i in range(0, random.randint(2, 5)):
-                            args = {}
-                            gold = random.random()
-                            if gold > 0.75:
-                                args['stud_id'] = 1
-                            else:
-                                args['stud_id'] = 0
-                            value = SCORES[args['stud_id']]
+                    if self.player_id is not None:
+                        if self.player_id == 0 or self.control_id:
+                            # Drop some of the player's studs
+                            hud = bge.logic.getSceneList()[1]
+                            stud_score = int(hud.objects['p' + str(self.player_id + 1) + '_studs']['Text'])
+                            lost_stud_score = 0
+                            # Drops between 2 - 5 studs with 25% chance of dropping gold
+                            for i in range(0, random.randint(2, 5)):
+                                gold = random.random()
+                                if gold > 0.75:
+                                    stud_id = 1
+                                else:
+                                    stud_id = 0
 
-                            if value + lost_stud_score <= stud_score:
-                                lost_stud_score += value
+                                value = SCORES[stud_id]
 
-                                args['pos'] = self.owner.worldPosition
-                                args['vel'] = (random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0), random.uniform(5.0, 7.0))
-                                DynamicStud(None, args=args)
+                                if value + lost_stud_score <= stud_score:
+                                    lost_stud_score += value
 
-                        hud.objects['p1_studs']['Text'] = stud_score - lost_stud_score
+                                    stud = owner.scene.addObject(STUDS[stud_id] + '-dynamic')
+                                    stud.worldPosition = owner.worldPosition
+                                    stud.setLinearVelocity((random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0), random.uniform(5.0, 7.0)))
 
-                        # Spawn new object first
-                        comp = Chief(None, ref=self.owner)
-                        comp.setWeapon(self.weapon.name)
-                        bge.logic.players[self.controlled - 1] = comp
-                        comp.setPlayer(self.controlled)
-                        #comp.head.worldOrientation = self.head.worldOrientation
-                        #bge.logic.getCurrentScene().active_camera = comp.cam
-                        comp.owner.collisionCallbacks.append(comp.studcollision)
+                                    hud.objects['p1_studs']['Text'] = stud_score - lost_stud_score
 
-                        bge.logic.game.refresh_hud()
+                            bge.logic.players[self.player_id] = None
 
-                        if self.controlled:
-                            new_ai = bge.logic.game.ai.register(comp, self.team, 'AI_Stub')
-                        else:
-                            new_ai = bge.logic.game.ai.register(comp, self.team, 'AI_Standard')
-                            player1_ai = bge.logic.game.ai.getAIController(bge.logic.players[0])
-                            new_ai.setLeader(player1_ai)
+                        # Respawn
+                        ## TODO - Delay this a few seconds
+                        new = owner.scene.addObject(type(self).__name__, owner)
 
-                            # Get back in vehicle if applicable
-                            vehicle = bge.logic.players[0].vehicle
-                            if vehicle is not None:
-                                self.enter_timer = 0
-                                new_ai.go_to_vehicle(vehicle)
+                        # New object is a group instance. Copy the properties.
+                        new['player'] = self.player_id
+                        new['weapon'] = type(self.weapon).__name__
+                        new['team'] = self.team
+                        new['control_id'] = self.control_id
 
-                        for s in squad:
-                            s.setLeader(new_ai)
+                        # Rather than automatically re-entering the vehicle,
+                        # lets give vehicles their own hitpoints and make riders
+                        # invulnerable while mounted.
 
-                        print ("Player respawned")
+                        ## TODO
+                        # Former squad members need to become followers again
+                        # Add this when I get the delay thing figured out
+                        # No longer necessary. They figure this out on their
+                        # own.
+                        #for s in squad:
+                        #    s.setLeader('player')
 
-                    self.owner.endObject()
+                    elif self.team != 0:
+                        # Drop random loot (studs, heart, weapon, shield?)
+                        pass
 
-                else:
-                    None
-                    """ Client-side detection
-                    table = packer.Table('HitTarget')
-                    table.set('id', self.net_id)
-                    table.set('target_id', comp.net_id)
-                    buff = packer.to_bytes(table)
-                    bge.logic.netplay.send_reliable(buff)
-                    """
-
+                self.owner['_invalid'] = 0
                 self.owner.endObject()
-                self.owner = None
 
-    def deserialize(self, table):
-        get = table.get
-        pos = (get('pos_x'), get('pos_y'), get('pos_z'))
-        rot = mathutils.Quaternion((get('rot_x'),
-                                    get('rot_y'),
-                                    get('rot_z'),
-                                    get('rot_w')))
+    def become_player(self, player_id):
+        if not None in bge.logic.players:
+            logging.warning('Max players already reached')
+            return
 
-        self.owner.worldPosition = pos
-        self.owner.worldOrientation = rot
+        if bge.logic.players[player_id] is not None:
+            raise ValueError('Player slot in use')
 
-        self.setWeapon(table.get('weapon'))
+        ## TODO - Set control ID
+        self.player_id = player_id
+        self.owner['is_player'] = True  # Prop used for player-only triggers
+        bge.logic.players[player_id] = self
 
-    def serialize(self):
-        table = packer.Table(self.setuptable)
-        pos = self.owner.worldPosition
-        rot = self.owner.worldOrientation.to_quaternion()
+        # Allow picking up studs
+        self.owner.collisionCallbacks.append(self.studcollision)
 
-        table.set('id', self.net_id)
-        table.set('pos_x', pos[0])
-        table.set('pos_y', pos[1])
-        table.set('pos_z', pos[2])
-        table.set('rot_x', rot[0])
-        table.set('rot_y', rot[1])
-        table.set('rot_z', rot[2])
-        table.set('rot_w', rot[3])
-        table.set('input', self.keystate.uint)
-        table.set('team', self.team)
+        # Unregister AI if applicable (returns False if not applicable)
+        bge.logic.game.ai.unregister(self)
 
-        if self.weapon is None:
-            table.set('weapon', '')
+        # Register AI stub
+        bge.logic.game.ai.register(self, self.team, 'AI_Stub')
+
+        bge.logic.game.refresh_hud()
+
+    def become_ai(self):
+        owner = self.owner
+        if 'is_player' in owner:
+            # Previously a player. Keep the ID in case it rejoins.
+            bge.logic.players[self.player_id] = None
+
+            # Stop picking up studs
+            self.owner.collisionCallbacks.remove(self.studcollision)
+            del owner['is_player']
+
+            # Unregister AI stub
+            bge.logic.game.ai.unregister(self)
         else:
-            table.set('weapon', self.weapon.name)
+            # Throw warning if already an AI
+            if bge.logic.game.ai.unregister(self):
+                logging.warning("AI was already registered")
 
-        return packer.to_bytes(table)
+        # Now register the AI
+        bge.logic.game.ai.register(self, self.team, 'AI_Standard')
 
-    def ChiefSetup(self, table):
-        self.deserialize(table)
+        # Set as a squad follower if applicable
+        if 'player' in owner.groupObject or 'squad' in owner.groupObject:
+            self.become_follower()
 
-    def setPlayer(self, controlled):
-        self.controlled = controlled
-        self.owner['player'] = True  # Player prop used for triggers
+        #ai.setLeader(bge.logic.game.ai.getAIController(bge.logic.players[0]))
 
-    def setWeapon(self, weapon):
+    def become_follower(self):
+        # Assuming it's already an AI-controlled unit
+        ai = bge.logic.game.ai.getAIController(self)
+        ai.setLeader('player')
+
+    def set_weapon(self, weapon):
         if self.weapon is not None:
             self.weapon.hide()
             self.weapon = None
@@ -369,93 +368,35 @@ class Chief(Controllable):
         #if bge.logic.netplay.server:
         #    print ("TODO: Forward to clients")
 
-    def ClientState(self, table):
-        if not bge.logic.netplay.server and self.permission:
-            # Player doesn't care about its own rotation
-            return
+    # See takeDamage instead
+    #def destroy(self):
+    #    self.owner.endObject()
 
-        self.keystate.uint = table.get('input')
-        rot = mathutils.Euler()
-        rot[2] = table.get('rot_z')
-        self.owner.worldOrientation = rot
-
-        ## Uncomment on for dedicated servers, or something
-        #if bge.logic.netplay.server:
-        #    # Don't bother interpolating on the server
-        #    self.owner.worldPosition = (table.get('pos_x'), table.get('pos_y'), table.get('pos_z'))
-        #    return
-
-        # Now interpolate the position...
-        # No just set it
-        #pos = self.expected_position
-        pos = mathutils.Vector()
-        pos[0] = table.get('pos_x')
-        pos[1] = table.get('pos_y')
-        pos[2] = table.get('pos_z')
-        self.owner.worldPosition = pos
-
-        ## Doesn't play nice with input-based prediction, remove this
-        """
-        # Set the velocity.  Client-side prediction is totally broken.
-        vel = mathutils.Vector()
-        vel[0] = table.get('vel_x')
-        vel[1] = table.get('vel_y')
-        vel[2] = table.get('vel_z')
-        self.owner.setLinearVelocity(vel, False)
-        """
-
-    def Destroy(self, table):
-        if bge.logic.netplay.server:
-            print("Running endobject on the server?")
-            return
-
-        """
-        # Spawn parts and end
-        ob = data.get('ob', self.owner)
-        if self.parts is not None:
-            parts = self.owner.scene.addObject(self.parts, self.owner)
-            for c in list(parts.children):
-                c.removeParent()
-                v = ob.getVectTo(c)[1]
-                c.applyForce(v * (random.random() * 1000.0), False)
-
-                factor = 1.0
-                if random.random() > 0.5:
-                    factor = -1.0
-                v = mathutils.Vector()
-                v[0] = random.random() * 100.0 * factor
-                v[1] = random.random() * 100.0 * factor
-                v[2] = random.random() * 100.0 * factor
-                c.applyTorque(v, False)
-        """
-
-        self.owner.endObject()
-        bge.logic.netplay.components[self.net_id] = None
-
+    ## TODO - Get rid of these. Keeping for now because AI uses it.
     def setForward(self, state):
-        self.keystate.set(state, (0,))
+        self.keystate['forward'] = bool(state)
 
     def setBackward(self, state):
-        self.keystate.set(state, (1,))
+        self.keystate['back'] = bool(state)
 
     def setLeft(self, state):
-        self.keystate.set(state, (2,))
+        self.keystate['left'] = bool(state)
 
     def setRight(self, state):
-        self.keystate.set(state, (3,))
+        self.keystate['right'] = bool(state)
 
     def setPrimary(self, state):
-        self.keystate.set(state, (6,))
+        self.keystate['shoot'] = bool(state)
 
     def setSecondary(self, state):
         None
 
     def update_player_input(self):
-        if self.controlled == 1:
+        if self.player_id == 0:
             self.set_keyboard_input()
-        else:
+        elif self.player_id > 0:
             self.set_controller_input()
-            if not self.controlled:
+            if not self.control_id:
                 return
 
         # Mouse buttons
@@ -477,8 +418,9 @@ class Chief(Controllable):
         #self.mouseLook()
 
         # Rotate main body if needed
-        if self.keystate.int:
-            if self.keystate.bin[6] == '1' and self.autoaim():
+        keystate = self.keystate
+        if True in list(keystate.values()):
+            if keystate['shoot'] and self.autoaim():
                 # Align to target
                 None
             else:
@@ -505,53 +447,11 @@ class Chief(Controllable):
             self.cam_empty.worldPosition = self.cam_empty.worldPosition.lerp(self.head.worldPosition + vec, 0.2)
         """
 
-        if bge.logic.netplay.server: # Don't send here on non-dedicated servers
-            return
-        else:
-            # Send input state to server
-            #bge.logic.netplay.send_to_server(
-            pass
-
-    def _permission(self, table):
-        component.NetComponent._permission(self, table)
-        if self.permission:
-            #bge.logic.getCurrentScene().active_camera = self.cam
-            bge.render.showMouse(False)
-            self.owner.collisionCallbacks.append(self.studcollision)
-            self.owner['local'] = True
-        else:
-            del self.owner['local']
-            print("Uhh... which camera to use?")
-
-    def update_client(self):
-        if self.disabled:
-            return
-
-        #if self.permission:
-        #    self.update_player_input()
-
-        ## Predict movement and play animations
-        self.move()
-
-        """
-        # Predict movement
-        self.move()  # TODO - Broken / sending velocity instead.  Address this.
-
-        if self.permission:
-            return
-
-        vel = self.owner.getLinearVelocity(False)
-        vel = vel * (1.0 / 60.0)
-        self.expected_position += vel
-
-        self.owner.worldPosition = self.owner.worldPosition.lerp(self.expected_position, 0.1)
-        """
-
     def move(self):
         owner = self.owner
 
         # Apply input state
-        keys = self.keystate.bin
+        keystate = self.keystate
         move = mathutils.Vector()
 
         if self.on_ground:
@@ -562,20 +462,20 @@ class Chief(Controllable):
             if self.jump_timer > 25:
                 self.owner.applyForce((0.0, 0.0, 300.0), False)
 
-        if keys[0] == '1':
+        if keystate['forward']:
             # Forward
             move[1] += 1.0
-        if keys[1] == '1':
+        if keystate['back']:
             # Back
             move[1] -= 1.0
-        if keys[2] == '1':
+        if keystate['left']:
             # Left
             move[0] -= 1.0
-        if keys[3] == '1':
+        if keystate['right']:
             # Right
             move[0] += 1.0
 
-        if keys[4] == '1':
+        if keystate['jump']:
             # Jump
             if not self.jump_timer:
                 if self.on_ground:
@@ -583,7 +483,7 @@ class Chief(Controllable):
                     self.armature.playAction('minifig-jump', 0, 35)
                     bge.logic.getCurrentScene().addObject('sound-jump')
 
-        if keys[5] == '1':
+        if keystate['interact']:
             # Interact
             # Check for something
             # TODO: Refactor this bit of code. Doesn't always work.
@@ -763,6 +663,12 @@ class Chief(Controllable):
         return True
 
     def update(self):
+        # Workaround to delayed endObject bug
+        if '_invalid' in self.owner:
+            self.owner['_invalid'] += 1
+            logging.warning('Previously called endObject() on {} at {}. So far {} extra logic tic(s)'.format(self.owner.name, self.owner.worldPosition, self.owner['_invalid']))
+            return
+
         if self.disabled:
             seat = self.vehicle.seats[self.passenger_id]
             if seat is not None:
@@ -777,7 +683,6 @@ class Chief(Controllable):
                     owner.worldOrientation = seat.worldOrientation
                     self.seat = None
 
-    def update_server(self):
         # Shield recharge
         if self.shield is not None:
             if self.next_recharge is not None:
@@ -796,7 +701,7 @@ class Chief(Controllable):
         if self.loudtimer:
             self.loudtimer -= 1
 
-        if self.controlled or self in bge.logic.players:
+        if self.player_id is not None:
             self.update_player_input()
 
         if self.enter_timer:
@@ -807,7 +712,7 @@ class Chief(Controllable):
 
         self.move()
 
-        if self.controlled:
+        if self.player_id is not None:
             # Check if stepping on something important
             v = mathutils.Vector((0.0, 0.0, -1.0))
             v = v + self.owner.worldPosition
@@ -818,38 +723,18 @@ class Chief(Controllable):
                     bge.logic.endGame()
 
 
-        # FIXME - Brute forcing every frame
-        table = packer.Table('ClientState')
-        table.set('id', self.net_id)
-        table.set('input', self.keystate.uint)
-
-        rot = self.owner.worldOrientation.to_euler()
-        table.set('rot_z', rot[2])
-
-        pos = self.owner.worldPosition
-        table.set('pos_x', pos[0])
-        table.set('pos_y', pos[1])
-        table.set('pos_z', pos[2])
-
-        # Send
-        buff = packer.to_bytes(table)
-        net = bge.logic.netplay
-        for c in net.clients:
-            if c is not None:
-                # Non-authoritative, so no need to send to owner
-                if c.peer.incomingPeerID not in self.permissions:
-                    c.send_reliable(buff)
-
-        keys = self.keystate.bin
-        if keys[6] == '1':
+        keystate = self.keystate
+        if keystate['shoot']:
             if self.weapon is not None:
                 if self.target_position is not None:
-                    dist, vec, lvec = self.barrel.getVectTo(self.target_position)
+                    dist, vec, lvec = self.weapon.barrel.getVectTo(self.target_position)
                 else:
                     vec = None
                     dist = 100.0
 
-                if dist < 4.5:
+                melee_dist = self.owner.getDistanceTo(self.weapon.barrel)
+
+                if dist < melee_dist:
                     if self.weapon.secondary(vector=vec):
                         self.time_since_shooting = 0
                         self.loudtimer = 60
@@ -861,22 +746,6 @@ class Chief(Controllable):
 
                     if not self.moving:
                         self.playShootStanding(self.weapon.name)
-
-        """
-        if not self.shoot_timer:
-            keys = self.keystate.bin
-            if keys[6] == '1':
-                weapons.Laser(None, ref=self.barrel)
-                self.shoot_timer = self.shoot_timer_reset
-                self.time_since_shooting = 0
-                self.loudtimer = 60
-
-                if not self.moving:
-                    self.playShootStanding()
-
-        else:
-            self.shoot_timer -= 1
-        """
 
         self.time_since_shooting += 1
 
@@ -892,9 +761,6 @@ class Marine(Chief):
     hp = 4
     shield = None
 
-    def MarineSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Arbiter(Chief):
     icon = 'icon-arbiter'
@@ -906,9 +772,6 @@ class Arbiter(Chief):
     team = 0
     hp = 4
     shield = 4
-
-    def ArbiterSetup(self, table):
-        self.ChiefSetup(table)
 
 
 class Elite(Chief):
@@ -922,9 +785,6 @@ class Elite(Chief):
     hp = 1
     shield = 2
 
-    def EliteSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Johnson(Chief):
     icon = 'icon-johnson'
@@ -936,9 +796,6 @@ class Johnson(Chief):
     team = 0
     hp = 1
     shield = None
-
-    def JohnsonSetup(self, table):
-        self.ChiefSetup(table)
 
 
 class Keyes(Chief):
@@ -952,9 +809,6 @@ class Keyes(Chief):
     hp = 1
     shield = None
 
-    def KeyesSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Bluecrew(Chief):
     icon = 'icon-crew'
@@ -966,9 +820,6 @@ class Bluecrew(Chief):
     team = 0
     hp = 1
     shield = None
-
-    def BluecrewSetup(self, table):
-        self.ChiefSetup(table)
 
 
 class Orangecrew(Chief):
@@ -982,9 +833,6 @@ class Orangecrew(Chief):
     hp = 1
     shield = None
 
-    def OrangecrewSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Yellowcrew(Chief):
     icon = 'icon-crew'
@@ -996,9 +844,6 @@ class Yellowcrew(Chief):
     team = 0
     hp = 1
     shield = None
-
-    def YellowcrewSetup(self, table):
-        self.ChiefSetup(table)
 
 
 class Redcrew(Chief):
@@ -1012,9 +857,6 @@ class Redcrew(Chief):
     hp = 1
     shield = None
 
-    def RedcrewSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Graycrew(Chief):
     icon = 'icon-crew'
@@ -1027,9 +869,6 @@ class Graycrew(Chief):
     hp = 1
     shield = None
 
-    def GraycrewSetup(self, table):
-        self.ChiefSetup(table)
-
 
 class Grunt(Chief):
     icon = 'icon-grunt'
@@ -1040,9 +879,6 @@ class Grunt(Chief):
     hp = 1
     shield = None
 
-    def GruntSetup(self, table):
-        self.ChiefSetup(table)
-
     def setup_object(self):
         self.armature = self.owner.children['grunt-armature']
 
@@ -1052,7 +888,6 @@ class Grunt(Chief):
 
         self.lefthand = self.armature.children['grunt-lefthand']
         self.righthand = self.armature.children['grunt-righthand']
-        self.barrel = self.owner.children['grunt-barrel']
 
     def playIdle(self):
         self.armature.stopAction()
@@ -1073,9 +908,6 @@ class Jackal(Grunt):
     hp = 1
     shield = 1
 
-    def JackalSetup(self, table):
-        self.ChiefSetup(table)
-
     def setup_object(self):
         self.armature = self.owner.children['jackal-armature']
 
@@ -1085,7 +917,6 @@ class Jackal(Grunt):
 
         self.lefthand = self.armature.children['jackal-lefthand']
         self.righthand = self.armature.children['jackal-righthand']
-        self.barrel = self.owner.children['jackal-barrel']
         self.shield_ob = self.armature.children['jackal-shield']
 
     def takeDamage(self, data):
@@ -1114,9 +945,6 @@ class Hunter(Grunt):
     hp = 20
     shield = None
 
-    def HunterSetup(self, table):
-        self.ChiefSetup(table)
-
     def setup_object(self):
         self.armature = self.owner.children['hunter-armature']
 
@@ -1126,7 +954,6 @@ class Hunter(Grunt):
 
         self.lefthand = self.armature.children['hunter-lefthand']
         self.righthand = self.armature.children['hunter-righthand']
-        self.barrel = self.owner.children['hunter-barrel']
 
     def takeDamage(self, data):
         ob = data.get('ob', None)
@@ -1148,77 +975,37 @@ class Hunter(Grunt):
         return
 
 
-def ensure_player_registered():
-    if hasattr(bge.logic, 'player'):
-        return True
-
-    objects = bge.logic.getCurrentScene().objects
-    for ob in objects:
-        group = ob.groupObject
-        if group is not None:
-            if 'player' in group and 'class' in ob:
-                register(ob.controllers[0])
-                return True
-
-    return False
+def main(cont):
+    parent = cont.owner.parent.parent
+    c = parent.get('_component', None)
+    if c is None:
+        parent['_component'] = COMPONENTS[cont.owner['class']](parent)
+    else:
+        c.update()
 
 
-def register(cont):
+def grunt_main(cont):
     owner = cont.owner
+    c = owner.get('_component', None)
+    if c is None:
+        owner['_component'] = COMPONENTS[owner['class']](owner)
+    else:
+        c.update()
 
-    if 'init' in owner:
-        return
-    owner['init'] = 0
-
-    group = owner.groupObject
-    if group is None:
-        # Spawned dynamically, no need to run this
-        del owner['class']
-        return
-
-    # Placed in editor. Spawn the full thing and delete this object
-    if bge.logic.netplay.server:
-        comp = eval(owner['class'])(None, ref=group)
-        # But keep the group to preserve custom logic on the server
-        comp.owner['group'] = group
-        group['owner'] = comp.owner
-
-        if 'weapon' in group:
-            comp.setWeapon(group['weapon'])
-
-        if 'team' in group:
-            team = group['team']
-        else:
-            team = getattr(comp, 'team', 2)  # 0 = UNSC, 1 = covenant
-
-        if 'player' in group:
-            bge.logic.players.append(comp)
-            number = len(bge.logic.players)
-
-            if number == 1:
-                # Set as player and register AI stub
-                comp.setPlayer(number)
-                #bge.logic.getCurrentScene().active_camera = comp.cam
-                bge.render.showMouse(False)
-                comp.owner.collisionCallbacks.append(comp.studcollision)
-                bge.logic.game.ai.register(comp, team, 'AI_Stub')
-            else:
-                # Anything else becomes AI until pressing start
-                ai = bge.logic.game.ai.register(comp, team, 'AI_Standard')
-                ai.setLeader(bge.logic.game.ai.getAIController(bge.logic.players[0]))
-        else:
-            # Register AI-controlled unit
-            ai = bge.logic.game.ai.register(comp, team, 'AI_Standard')
-            if 'squad' in group:
-                # Ensure player was registered
-                if ensure_player_registered():
-                    ai.setLeader(bge.logic.game.ai.getAIController(bge.logic.players[0]))
-                else:
-                    print ("No groups with player property")
-
-    for m in list(group.groupMembers):
-        if m.parent is None:
-            m.endObject()
-
-    if not bge.logic.netplay.server:
-        group.endObject()
+# Could do eval(owner['class'])(owner) instead
+# Is code injection a thing we need to worry about?
+COMPONENTS = {}
+COMPONENTS['Chief'] = Chief
+COMPONENTS['Marine'] = Marine
+COMPONENTS['Arbiter'] = Arbiter
+COMPONENTS['Elite'] = Elite
+COMPONENTS['Johnson'] = Johnson
+COMPONENTS['Keyes'] = Keyes
+COMPONENTS['Bluecrew'] = Bluecrew
+COMPONENTS['Orangecrew'] = Orangecrew
+COMPONENTS['Yellowcrew'] = Yellowcrew
+COMPONENTS['Redcrew'] = Redcrew
+COMPONENTS['Graycrew'] = Graycrew
+COMPONENTS['Grunt'] = Grunt
+COMPONENTS['Jackal'] = Jackal
+COMPONENTS['Hunter'] = Hunter

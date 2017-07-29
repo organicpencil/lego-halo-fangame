@@ -3,10 +3,6 @@ import sys
 import bge
 import ai
 
-# Hack to support module layout in git
-sys.path.append(bge.logic.expandPath('//../'))
-sys.path.append(bge.logic.expandPath('//../bge-netplay/'))
-
 
 def exception_handler(type_, value, tb):
     # print the exception
@@ -23,9 +19,6 @@ def exception_handler(type_, value, tb):
 
 # tell Python to use your function
 sys.excepthook = exception_handler
-
-import tables
-tables.define()
 
 
 def load_assets():
@@ -68,86 +61,85 @@ class Game:
             # Must wait 1 frame for overlay scenes to initiate
             return
 
-        if len(bge.logic.players) < 2:
-            # Players not yet registered, defer
-            return
-
         self.init_hud = False
 
         # Player 1
         player = bge.logic.players[0]
 
-        # Icon
-        icon = hud.objects['p1_icon']
-        if not len(icon.children):
-            icon.color = [0, 1, 0, 1]
-            ic = hud.addObject(hud.objectsInactive[player.icon], icon)
-            ic.worldPosition[1] -= 0.1
-            ic.setParent(icon)
+        if player is not None:
+            # Icon
+            icon = hud.objects['p1_icon']
+            if not len(icon.children):
+                icon.color = [0, 1, 0, 1]
+                ic = hud.addObject(hud.objectsInactive[player.icon], icon)
+                ic.worldPosition[1] -= 0.1
+                ic.setParent(icon)
 
-        # Hearts
-        hearts = hud.objects['p1_hearts']
-        for c in list(hearts.children):
-            c.endObject()
+            # Hearts
+            hearts = hud.objects['p1_hearts']
+            for c in list(hearts.children):
+                c.endObject()
 
-        for i in range(player.hp):
-            ob = hud.addObject(hud.objectsInactive['icon-heart'], hearts)
-            ob.setParent(hearts)
-            ob.worldPosition[0] += i * 0.32
-
-            if i + 1 == player.hp:
-                # Last heart is animated
-                ob.state = 2
-
-        # Shield
-        if player.shield is not None:
-            for i in range(player.shield):
-                ob = hud.addObject(hud.objectsInactive['shield'], hearts)
+            for i in range(player.hp):
+                ob = hud.addObject(hud.objectsInactive['icon-heart'], hearts)
                 ob.setParent(hearts)
-                ob.worldPosition[0] += i * 0.22
-                ob.worldPosition[2] -= 0.3
+                ob.worldPosition[0] += i * 0.32
+
+                if i + 1 == player.hp:
+                    # Last heart is animated
+                    ob.state = 2
+
+            # Shield
+            if player.shield is not None:
+                for i in range(player.shield):
+                    ob = hud.addObject(hud.objectsInactive['shield'], hearts)
+                    ob.setParent(hearts)
+                    ob.worldPosition[0] += i * 0.22
+                    ob.worldPosition[2] -= 0.3
 
         # Player 2
         player = bge.logic.players[1]
 
-        # Icon
-        icon = hud.objects['p2_icon']
-        if not len(icon.children):
-            icon.color = [0, 0, 1, 1]
+        if player is not None:
+            # Icon
+            icon = hud.objects['p2_icon']
+            if not len(icon.children):
+                icon.color = [0, 0, 1, 1]
+                ic = hud.addObject(hud.objectsInactive[player.icon], icon)
+                ic.worldPosition[1] -= 0.1
+                ic.setParent(icon)
+
+            # Hearts
+            hearts = hud.objects['p2_hearts']
+            for c in list(hearts.children):
+                c.endObject()
+
+            for i in range(player.hp):
+                ob = hud.addObject(hud.objectsInactive['icon-heart'], hearts)
+                ob.setParent(hearts)
+                ob.worldPosition[0] -= i * 0.32
+
+                if i + 1 == player.hp:
+                    # Last heart is animated
+                    ob.state = 2
+
+            # Shield
+            if player.shield is not None:
+                for i in range(player.shield):
+                    ob = hud.addObject(hud.objectsInactive['shield'], hearts)
+                    ob.setParent(hearts)
+                    ob.worldPosition[0] -= i * 0.22
+                    ob.worldPosition[2] -= 0.3
+
+            # Icon
+            icon = hud.objects['p1_icon']
+            for c in list(icon.children):
+                c.endObject()
             ic = hud.addObject(hud.objectsInactive[player.icon], icon)
-            ic.worldPosition[1] -= 0.1
             ic.setParent(icon)
 
-        # Hearts
-        hearts = hud.objects['p2_hearts']
-        for c in list(hearts.children):
-            c.endObject()
-
-        for i in range(player.hp):
-            ob = hud.addObject(hud.objectsInactive['icon-heart'], hearts)
-            ob.setParent(hearts)
-            ob.worldPosition[0] -= i * 0.32
-
-            if i + 1 == player.hp:
-                # Last heart is animated
-                ob.state = 2
-
-        # Shield
-        if player.shield is not None:
-            for i in range(player.shield):
-                ob = hud.addObject(hud.objectsInactive['shield'], hearts)
-                ob.setParent(hearts)
-                ob.worldPosition[0] -= i * 0.22
-                ob.worldPosition[2] -= 0.3
-
-        # Icon
-        icon = hud.objects['p1_icon']
-        for c in list(icon.children):
-            c.endObject()
-        ic = hud.addObject(hud.objectsInactive[player.icon], icon)
-        ic.setParent(icon)
-
         # TODO - Split this up rather than refreshing everything
+        # Also duplicate code wtf
 
     def update(self):
         now = bge.logic.getFrameTime()
@@ -163,8 +155,6 @@ class Game:
         for b in list(self.timers):
             if b.update(dt):
                 self.timers.remove(b)
-
-        bge.logic.netplay.update()
 
 
 class Timer:
@@ -219,23 +209,9 @@ class Lerper:
 def main():
     if hasattr(bge.logic, 'game'):
         bge.logic.game.update()
-        bge.logic.netplay.update()
     else:
         # First frame
         load_assets()
 
-        from netplay import host
-        # Network settings from menu, if applicable, will be in globalDict
-        network = bge.logic.globalDict.get('network', None)
-        if network is None:
-            bge.logic.netplay = host.ServerHost()
-        else:
-            if network['mode'] == 'offline':
-                bge.logic.netplay = host.ServerHost(offline=True)
-            elif network['mode'] == 'server':
-                bge.logic.netplay = host.ServerHost()
-            else:
-                bge.logic.netplay = host.ClientHost(server_ip=network['server_ip'])
-
-        bge.logic.players = []
+        bge.logic.players = [None, None]
         bge.logic.game = Game()

@@ -1,9 +1,9 @@
+import logging
 import random
 import bge
 import mathutils
 import math
 import collections
-import utils
 
 
 class AIManager:
@@ -33,7 +33,7 @@ class AIManager:
                 break
 
             if i == self.max_units - 1:
-                print ("WARNING - exeeding %d AI" % self.max_units)
+                logging.warning("Exeeding AI soft cap at %d" % self.max_units)
                 ai = aitype(self, component, team)
                 self.units.append(ai)
                 self.max_units += 1
@@ -92,6 +92,10 @@ class AIManager:
                     # Stub or in vehicle
                     continue
 
+                # Check for pending leader assignment
+                if u.leader_is_player and u.leader is None:
+                    u._setLeaderPlayer()
+
                 u.state()
                 self.next_unit = n
                 return
@@ -112,6 +116,9 @@ def degreesFromVect(vect):
 
 
 def deadCheck(ai):
+    if ai is None:
+        return True
+
     component = ai.component
     if component.hp < 1 or component.owner.invalid:  # or component.disabled:
         return True
@@ -123,6 +130,8 @@ class AI_Stub:
         self.component = component
         self.team = team
         self.squad = []
+        self.leader = None
+        self.leader_is_player = False
 
         self.vision_range = 100.0
 
@@ -156,6 +165,7 @@ class AI_Standard:
         self.leader = None
         self.leader_min_distance = 10.0
         self.leader_max_distance = 20.0
+        self.leader_is_player = False
 
         self.squad = []
 
@@ -175,10 +185,40 @@ class AI_Standard:
     def setLeader(self, leader):
         if self.leader is not None:
             self.leader.squad.remove(self)
+            self.leader = None
+            self.leader_is_player = False
+
+        if type(leader) is str:
+            # Leader is player. Figure out which.
+            # Player death doesn't call setLeader, so leader_is_player should
+            # remain true.
+            self.leader_is_player = True
+            self._setLeaderPlayer()
+            return
 
         self.leader = leader
         if leader is not None:
             leader.squad.append(self)
+
+    def _setLeaderPlayer(self):
+        # Follow the player with the least amount of followers
+        least_player_ai = None
+        least_amount = 0
+        for p in bge.logic.players:
+            if p is not None:
+                if self.team != p.team:
+                    logging.warning('Enemies cannot join the player squad')
+                    continue
+
+                p_ai = bge.logic.game.ai.getAIController(p)
+                if least_player_ai is None or len(p_ai.squad) < least_amount:
+                    least_player_ai = p_ai
+
+        if least_player_ai is None:
+            # No players exist right now. Will try again later.
+            pass
+        else:
+            self.setLeader(least_player_ai)
 
     def check_leader_dist(self):
         if deadCheck(self.leader):
@@ -256,10 +296,10 @@ class AI_Standard:
         return False
 
     def check_los(self, target):
-        #source = self.component.owner
-        #pos = self.component.owner
-        source = self.component.barrel
-        pos = self.component.barrel
+        source = self.component.owner
+        pos = self.component.owner
+        #source = self.component.weapon.barrel
+        #pos = self.component.weapon.barrel
 
         count = 0
         to = target.component.owner

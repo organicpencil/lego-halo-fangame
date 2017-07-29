@@ -2,6 +2,13 @@ import bge
 import utils
 
 
+def fade(cont):
+    owner = cont.owner
+    owner.color[3] -= 0.03
+    if owner.color[3] <= 0.01:
+        owner.endObject()
+
+
 def sensors(cont):
     for sens in cont.sensors:
         if not sens.positive:

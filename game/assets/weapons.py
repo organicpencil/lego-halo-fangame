@@ -1,64 +1,44 @@
 import bge
 import mathutils
-import random
-
-from netplay import packer, component
 
 
-class Laser(component.GameObject):
-    obj = 'marine_laser_0'
-    setuptable = 'LaserSetup'
+class RedLaserShot:
     particle = 'spark_emitter_red'
 
-    def start_client(self):
-        return
-
-    def start_server(self, args):
+    def __init__(self, owner):
+        self.owner = owner
         self.timer = bge.logic.getFrameTime() + 4.0
-        if args is not None:
-            self.speed = args.get('speed', 30.0)
-            if args.get('vector', None) is not None:
-                self.owner.alignAxisToVect(args['vector'], 1)
-        else:
-            self.speed = 30.0
+        self.speed = 30.0 + owner.get('deltaspeed', 0.0)
 
-    def deserialize(self, table):
-        get = table.get
-        self.owner.worldPosition = (get('pos_x'), get('pos_y'), get('pos_z'))
-        rot = mathutils.Euler((get('rot_x'), 0.0, get('rot_z')))
-        self.owner.worldOrientation = rot
-        self.speed = table.get('speed')
+        vector = owner.get('vector', None)
+        if vector is not None:
+            owner.alignAxisToVect(vector, 1)
 
-    def serialize(self):
-        table = packer.Table('LaserSetup')
-        table.set('id', self.net_id)
-        pos = self.owner.worldPosition
-        table.set('pos_x', pos[0])
-        table.set('pos_y', pos[1])
-        table.set('pos_z', pos[2])
-        rot = self.owner.worldOrientation.to_euler()
-        table.set('rot_x', rot[0])
-        table.set('rot_z', rot[2])
-
-        # Don't need to send speed for stationary shooters
-        if 29.9 < self.speed < 30.1:
-            table.set('speed', self.speed)
-
-        return packer.to_bytes(table)
-
-    def LaserSetup(self, table):
-        self.deserialize(table)
-
-    def Destroy(self, table):
-        if bge.logic.netplay.server:
-            print("Running endobject on the server?")
-            return
-
+    def destroy(self):
         self.owner.endObject()
-        bge.logic.netplay.components[self.net_id] = None
 
     def update(self):
-        self.owner.applyMovement((0.0, self.speed * bge.logic.game.deltatime, 0.0), True)
+        owner = self.owner
+
+        # Move
+        owner.applyMovement((0.0, self.speed * bge.logic.game.deltatime, 0.0),
+            True)
+
+        # Check for collisions
+        vec = mathutils.Vector((0.0, 1.0, 0.0))
+        vec = vec * owner.worldOrientation.inverted()
+        vec = vec + owner.worldPosition
+
+        hitOb, hitPos, hitNormal = owner.rayCast(vec,
+            owner, 65 * bge.logic.game.deltatime)
+
+
+        if hitOb is not None:
+            self.on_hit(hitOb, hitPos, hitNormal)
+        else:
+            now = bge.logic.getFrameTime()
+            if now > self.timer:
+                self.destroy()
 
     def sparks(self, hitPos):
         # Spawn spark particle
@@ -67,59 +47,24 @@ class Laser(component.GameObject):
         #ob.scaling = (0.25, 0.25, 0.25)
 
     def on_hit(self, hitOb, hitPos, hitNormal):
-        if hitOb is not None:
-            self.sparks(hitPos)
-            # Apply the damage
-            if '_component' in hitOb:
-                data = {}
-                data['damage'] = 1
-                data['ob'] = self.owner
-                data['hitPos'] = hitPos
-                data['hitVec'] = hitNormal
+        self.sparks(hitPos)
+        # Apply the damage
+        if '_component' in hitOb:
+            data = {}
+            data['damage'] = 1
+            data['ob'] = self.owner
+            data['hitPos'] = hitPos
+            data['hitVec'] = hitNormal
 
-                comp = hitOb['_component']
-                if hasattr(comp, 'takeDamage'):
-                    comp.takeDamage(data)
+            comp = hitOb['_component']
+            if hasattr(comp, 'takeDamage'):
+                comp.takeDamage(data)
 
-        # Destroy the component
-        host = bge.logic.netplay
-        host.components[self.net_id] = None
-        self.owner.endObject()
-        table = packer.Table('Destroy')
-        table.set('id', self.net_id)
-        buff = packer.to_bytes(table)
-
-        host.send_to_clients(buff)
-
-    def update_server(self):
-        owner = self.owner
-        vec = mathutils.Vector((0.0, 1.0, 0.0))
-        vec = vec * owner.worldOrientation.inverted()
-        vec = vec + owner.worldPosition
-
-        hitOb, hitPos, hitNormal = owner.rayCast(vec, owner, 65 * bge.logic.game.deltatime)
-        now = bge.logic.getFrameTime()
-
-        if hitOb is not None or now > self.timer:
-            self.on_hit(hitOb, hitPos, hitNormal)
+        self.destroy()
 
 
-class RedLaser(Laser):
-    obj = 'laser_red'
-    setuptable = 'RedLaserSetup'
-    particle = 'spark_emitter_red'
-
-    def RedLaserSetup(self, table):
-        self.LaserSetup(table)
-
-
-class BlueLaser(Laser):
-    obj = 'laser_blue'
-    setuptable = 'BlueLaserSetup'
+class BlueLaserShot(RedLaserShot):
     particle = 'spark_emitter_plasma'
-
-    def BlueLaserSetup(self, table):
-        self.LaserSetup(table)
 
 
 def timer_explode(self):
@@ -138,32 +83,13 @@ def timer_explode(self):
         if hasattr(comp, 'takeDamage'):
             comp.takeDamage(data)
 
-    # Destroy the component
-    host = bge.logic.netplay
-    host.components[self.net_id] = None
-    if not self.owner.invalid:
-        self.owner.scene.addObject('needler_explosion', self.owner)
-        self.owner.endObject()
-    table = packer.Table('Destroy')
-    table.set('id', self.net_id)
-    buff = packer.to_bytes(table)
 
-    host.send_to_clients(buff)
-
-
-class NeedlerShot(Laser):
-    obj = 'needler_shot'
-    setuptable = 'NeedlerShotSetup'
+class NeedlerShot(RedLaserShot):
     particle = 'spark_emitter_red'
 
-    def start(self):
-        self.target = None
-
-    def NeedlerShotSetup(self, table):
-        self.LaserSetup(table)
-
-    def set_target(self, target):
-        self.target = target
+    def __init__(self, owner):
+        RedLaserShot.__init__(self, owner)
+        self.target = owner.get('target', None)
 
     def nothing(self):
         pass
@@ -176,7 +102,6 @@ class NeedlerShot(Laser):
 
             self.owner.setParent(hitOb)
             self.update = self.nothing
-            self.update_server = self.nothing
             bge.logic.game.add_timer(1.0, timer_explode, self)
 
         else:
@@ -185,18 +110,8 @@ class NeedlerShot(Laser):
             # Make it explode for coolness
             self.owner.scene.addObject('needler_explosion', self.owner)
 
-            # Destroy the component
-            host = bge.logic.netplay
-            host.components[self.net_id] = None
-            self.owner.endObject()
-            table = packer.Table('Destroy')
-            table.set('id', self.net_id)
-            buff = packer.to_bytes(table)
-
-            host.send_to_clients(buff)
-
     def update(self):
-        Laser.update(self)
+        RedLaserShot.update(self)
         target = self.target
         if target is not None and not target.invalid:
             owner = self.owner
@@ -204,17 +119,14 @@ class NeedlerShot(Laser):
             owner.alignAxisToVect(v, 1, 0.1)
 
 
-class FuelRodShot(Laser):
-    obj = 'fuelrod_shot'
-    setuptable = 'FuelRodShotSetup'
+class FuelRodShot(RedLaserShot):
     particle = 'spark_emitter_alien'
 
-    def start(self):
-        self.owner.scaling = (0.5, 0.5, 0.5)
-
-    def start_server(self, args):
-        Laser.start_server(self, args)
-        self.owner.collisionCallbacks.append(self.collision)
+    def __init__(self, owner):
+        RedLaserShot.__init__(self, owner)
+        owner.collisionCallbacks.append(self.collision)
+        # Original model was too big, applying scale breaks animation
+        owner.scaling = (0.5, 0.5, 0.5)
 
     def collision(self, hitOb, hitPos, hitNormal):
         # Spawn spark particle
@@ -233,15 +145,7 @@ class FuelRodShot(Laser):
             if hasattr(comp, 'takeDamage'):
                 comp.takeDamage(data)
 
-            # Destroy the component
-            host = bge.logic.netplay
-            host.components[self.net_id] = None
-            self.owner.endObject()
-            table = packer.Table('Destroy')
-            table.set('id', self.net_id)
-            buff = packer.to_bytes(table)
-
-            host.send_to_clients(buff)
+            self.destroy()
 
     def FuelRodShotSetup(self, table):
         self.LaserSetup(table)
@@ -255,26 +159,19 @@ class FuelRodShot(Laser):
         now = bge.logic.getFrameTime()
 
         if now > self.timer:
-            # Destroy the component
-            host = bge.logic.netplay
-            host.components[self.net_id] = None
-            self.owner.endObject()
-            table = packer.Table('Destroy')
-            table.set('id', self.net_id)
-            buff = packer.to_bytes(table)
-
-            host.send_to_clients(buff)
+            self.destroy()
 
 
 class AssaultRifle:
     obj = 'weapon-assaultrifle'
     name = 'AssaultRifle'  # There's a better way to pull class name
     primary_delay = 0.5  # Seconds
-    shoot = RedLaser
+    bullet = 'laser_red'
 
     def __init__(self, user):
         self.user = user
         self.ob = None
+        self.barrel = None
         self.primary_next_time = 0.0
         self.melee_delay = 0.5
         self.show()
@@ -291,9 +188,11 @@ class AssaultRifle:
             # TODO - raycast or spawn projectile
             #Laser(None, ref=self.user.barrel)
             #BulletTracer(None, ref=self.ob.children[0])
-            speed = self.user.owner.getLinearVelocity(True)[1] + 30.0
-            b = self.shoot(None, ref=self.user.barrel, args={'speed': speed, 'vector': vector})
-            b.owner.worldPosition = self.ob.children[0].worldPosition
+            b = self.ob.scene.addObject(self.bullet, self.barrel)
+            b.worldPosition = self.ob.children[0].worldPosition
+            b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
+            if vector is not None:
+                b['vector'] = vector
             return True
 
         return False
@@ -304,7 +203,7 @@ class AssaultRifle:
             self.primary_next_time = now + self.melee_delay
 
             target = None
-            if self.user.controlled:
+            if self.user.player_id is not None:
                 target = self.user.auto_target['_component']
             else:
                 ai = bge.logic.game.ai.getAIController(self.user)
@@ -330,25 +229,27 @@ class AssaultRifle:
             hand = self.user.righthand
             self.ob = hand.scene.addObject(self.obj, hand)
             self.ob.setParent(hand)
+            self.barrel = self.ob.children[self.ob.name + '-barrel']
 
     def hide(self):
         if self.ob is not None:
             self.ob.endObject()
             self.ob = None
+            self.barrel = None
 
 
 class PlasmaRifle(AssaultRifle):
     obj = 'weapon-plasmarifle'
     name = 'PlasmaRifle'
     primary_delay = 0.5
-    shoot = BlueLaser
+    bullet = 'laser_blue'
 
 
 class Needler(AssaultRifle):
     obj = 'weapon-needler'
     name = 'Needler'
     primary_delay = 0.5
-    shoot = NeedlerShot
+    bullet = 'needler_shot'
 
     def primary(self, vector=None):
         if self.ob is None:
@@ -362,11 +263,14 @@ class Needler(AssaultRifle):
             # TODO - raycast or spawn projectile
             #Laser(None, ref=self.user.barrel)
             #BulletTracer(None, ref=self.ob.children[0])
-            speed = self.user.owner.getLinearVelocity(True)[1] + 30.0
-            b = self.shoot(None, ref=self.user.barrel, args={'speed': speed, 'vector': vector})
-            b.owner.worldPosition = self.ob.children[0].worldPosition
+            b = self.ob.scene.addObject(self.bullet, self.barrel)
+            b.worldPosition = self.ob.children[0].worldPosition
+            b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
+            b['vector'] = vector
 
-            if self.user.controlled:
+            ## TODO - Fix homing needlers
+            """
+            if self.user.player_id is not None:
                 b.set_target(self.user.auto_target)
             else:
                 ai = bge.logic.game.ai.getAIController(self.user)
@@ -376,6 +280,7 @@ class Needler(AssaultRifle):
                     except:
                         b.set_target(None)
 
+            """
             return True
 
         return False
@@ -395,8 +300,12 @@ class Sniper(AssaultRifle):
         if now >= self.primary_next_time:
             self.primary_next_time = now + self.primary_delay
 
-            barrel = self.user.barrel
+            #barrel = self.user.barrel
+            barrel = self.barrel
             ob = barrel.scene.addObject('sniper_shot', barrel)
+
+            if vector is not None:
+                ob.alignAxisToVect(vector, 1)
 
             vec = mathutils.Vector((0.0, 1.0, 0.0))
             vec = vec * ob.worldOrientation.inverted()
@@ -425,6 +334,8 @@ class Sniper(AssaultRifle):
 
 
 class FuelRod:
+    # This one's kinda a hack because the weapon model is built into the hunter
+    # TODO - Do something about this
     name = 'FuelRod'
     primary_delay = 2.0
 
@@ -437,8 +348,10 @@ class FuelRod:
         now = bge.logic.getFrameTime()
         if now >= self.primary_next_time:
             self.primary_next_time = now + self.primary_delay
-            speed = self.user.owner.getLinearVelocity(True)[1] + 30.0
-            FuelRodShot(None, ref=self.user.barrel, args={'speed': speed, 'vector': vector})
+            b = self.ob.scene.addObject('fuelrod_shot', self.user.barrel)
+            b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
+            if vector is not None:
+                b['vector'] = vector
             return True
         return False
 
@@ -446,6 +359,25 @@ class FuelRod:
         return False
 
 
+def main(cont):
+    owner = cont.owner
+    c = owner.get('_component', None)
+    if c is None:
+        owner['_component'] = COMPONENTS[owner['class']](owner)
+    else:
+        c.update()
+
+
+# Could do eval(owner['class'])(owner) instead
+# Is code injection a thing we need to worry about?
+COMPONENTS = {}
+# Projectiles
+COMPONENTS['RedLaserShot'] = RedLaserShot
+COMPONENTS['BlueLaserShot'] = BlueLaserShot
+COMPONENTS['NeedlerShot'] = NeedlerShot
+COMPONENTS['FuelRodShot'] = FuelRodShot
+
+# Weapons
 weapons = {}
 weapons['AssaultRifle'] = AssaultRifle
 weapons['PlasmaRifle'] = PlasmaRifle

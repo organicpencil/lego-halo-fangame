@@ -22,7 +22,7 @@ class FollowCam:
         """
         # Center view on all players
         for p in bge.logic.players:
-            if p.controlled:
+            if p is not None:
                 ob = p.owner
                 if not ob.invalid:
                     pos += ob.worldPosition

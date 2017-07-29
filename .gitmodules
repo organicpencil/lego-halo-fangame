@@ -1,3 +1,0 @@
-[submodule "game/bge-netplay"]
-	path = game/bge-netplay
-	url = https://github.com/pqftgs/bge-netplay.git
