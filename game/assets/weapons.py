@@ -32,7 +32,6 @@ class RedLaserShot:
         hitOb, hitPos, hitNormal = owner.rayCast(vec,
             owner, 65 * bge.logic.game.deltatime)
 
-
         if hitOb is not None:
             self.on_hit(hitOb, hitPos, hitNormal)
         else:
@@ -185,9 +184,6 @@ class AssaultRifle:
         if now >= self.primary_next_time:
             self.primary_next_time = now + self.primary_delay
 
-            # TODO - raycast or spawn projectile
-            #Laser(None, ref=self.user.barrel)
-            #BulletTracer(None, ref=self.ob.children[0])
             b = self.ob.scene.addObject(self.bullet, self.barrel)
             b.worldPosition = self.ob.children[0].worldPosition
             b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
@@ -260,9 +256,6 @@ class Needler(AssaultRifle):
         if now >= self.primary_next_time:
             self.primary_next_time = now + self.primary_delay
 
-            # TODO - raycast or spawn projectile
-            #Laser(None, ref=self.user.barrel)
-            #BulletTracer(None, ref=self.ob.children[0])
             b = self.ob.scene.addObject(self.bullet, self.barrel)
             b.worldPosition = self.ob.children[0].worldPosition
             b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
