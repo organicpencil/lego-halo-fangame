@@ -283,7 +283,7 @@ class AI_Standard:
 
         if final_target is not None:
             self.target_last_position = final_target.component.owner.worldPosition.copy()
-            ## TODO: Save time so things eventually stop chasing?
+            # If we were to limit chase time, it'd be done here
 
         return final_target
 
@@ -298,8 +298,7 @@ class AI_Standard:
     def check_los(self, target):
         source = self.component.owner
         pos = self.component.owner
-        #source = self.component.weapon.barrel
-        #pos = self.component.weapon.barrel
+        # TODO - Check LOS from weapon barrel firing position
 
         count = 0
         to = target.component.owner
