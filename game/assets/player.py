@@ -2,7 +2,6 @@ import logging
 import random
 import bge
 import mathutils
-import utils
 import weapons
 from stud import STUDS, SCORES
 from objects import Controllable
@@ -181,11 +180,9 @@ class Chief(Controllable):
             damage = data.get('damage', 0)
 
             if self.shield is not None:
-                # TODO: Reset recharge timer
                 self.next_recharge = bge.logic.getFrameTime() + self.shield_initial_recharge
 
                 if self.shield > 0:
-                    # TODO: Shield visual effect
                     self.shield_ob['damaged'] = True
 
                     self.shield -= damage
@@ -243,7 +240,6 @@ class Chief(Controllable):
                             for s in squad:
                                 s.setLeader(None)
 
-                    ## TODO - Unregister should be doing setLeader(None)
                     bge.logic.game.ai.unregister(self)
 
                     if self.player_id is not None:
@@ -287,14 +283,6 @@ class Chief(Controllable):
                         # lets give vehicles their own hitpoints and make riders
                         # invulnerable while mounted.
 
-                        ## TODO
-                        # Former squad members need to become followers again
-                        # Add this when I get the delay thing figured out
-                        # No longer necessary. They figure this out on their
-                        # own.
-                        #for s in squad:
-                        #    s.setLeader('player')
-
                     elif self.team != 0:
                         # Drop random loot (studs, heart, weapon, shield?)
                         pass
@@ -310,12 +298,12 @@ class Chief(Controllable):
         if bge.logic.players[player_id] is not None:
             raise ValueError('Player slot in use')
 
-        ## TODO - Set control ID
+        ## TODO - Set control_id in a way that assumes more than 2 players.
         self.player_id = player_id
-        self.owner['is_player'] = True  # Prop used for player-only triggers
         bge.logic.players[player_id] = self
 
-        # Allow picking up studs
+        # Allow picking up studs and other player-only triggers
+        self.owner['is_player'] = True
         self.owner.collisionCallbacks.append(self.studcollision)
 
         # Unregister AI if applicable (returns False if not applicable)
@@ -364,9 +352,6 @@ class Chief(Controllable):
 
         if weapon is not None:
             self.weapon = weapons.weapons[weapon](self)
-
-        #if bge.logic.netplay.server:
-        #    print ("TODO: Forward to clients")
 
     # See takeDamage instead
     #def destroy(self):
