@@ -297,8 +297,10 @@ class AI_Standard:
 
     def check_los(self, target):
         source = self.component.owner
-        pos = self.component.owner
-        # TODO - Check LOS from weapon barrel firing position
+        pos = self.component.owner.worldPosition.copy()
+        vec = mathutils.Vector((1.0, 0.0, 0.0))
+        vec = vec * self.component.owner.worldOrientation.inverted()
+        pos += vec
 
         count = 0
         to = target.component.owner
