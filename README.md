@@ -25,7 +25,7 @@ Player 2 can drop in with a controller by pressing start.
 Online multiplayer does exist but is currently limited in functionality.
 
 **Main contributors**  
-Joe Smith/Bob Jones/whatever - project founder, modeller, animator  
+legohaloppl - project founder, modeller, animator  
 [Lee Pugh (pqftgs)](https://github.com/pqftgs/) - programmer
 
 **Other credits**  
