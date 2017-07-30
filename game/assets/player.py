@@ -240,6 +240,11 @@ class Chief(Controllable):
                             for s in squad:
                                 s.setLeader(None)
 
+                        # Random loot drop
+                        if self.team != 0:
+                            stud = owner.scene.addObject(STUDS[0] + '-dynamic', self.owner)
+                            stud.setLinearVelocity((random.uniform(-5.0, 5.0), random.uniform(-5.0, 5.0), random.uniform(5.0, 7.0)))
+
                     bge.logic.game.ai.unregister(self)
 
                     if self.player_id is not None:

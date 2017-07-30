@@ -59,6 +59,11 @@ class RedLaserShot:
             if hasattr(comp, 'takeDamage'):
                 comp.takeDamage(data)
 
+        elif 'destructible' in hitOb:
+            obj = hitOb['parts']
+            ob = hitOb.scene.addObject(obj, hitOb)
+            hitOb.endObject()
+
         self.destroy()
 
 
