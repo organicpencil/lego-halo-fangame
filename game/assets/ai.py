@@ -664,11 +664,13 @@ class AI_Standard:
             self.component.setRight(False)
 
     def stay_at_location(self):
-        return
-        ## TODO: Shoot at stuff without moving
-        #owner = self.component.owner
-        #self.location[2] = owner.worldPosition[2]
-        #owner.worldPosition = owner.worldPosition.lerp(self.location, 0.2)
+        # Shoot at stuff without moving
+        target = self.check_for_enemy()
+        if target is None:
+            self.component.keystate['primary'] = False
+        else:
+            self.component.keystate['primary'] = True
+            self.lookAt(target.component.owner)
 
     def get_in_vehicle(self):
         self.component.enter_timer = 0
