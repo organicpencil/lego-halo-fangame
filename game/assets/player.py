@@ -942,7 +942,7 @@ class Hunter(Grunt):
         #self.cam_empty = self.head.children['hunter-camera-empty']
         #self.cam = self.cam_empty.children['hunter-camera']
 
-        self.lefthand = self.armature.children['hunter-lefthand']
+        self.lefthand = self.armature.children['hunter-leftarm']
         self.righthand = self.armature.children['hunter-righthand']
 
     def takeDamage(self, data):
@@ -955,8 +955,8 @@ class Hunter(Grunt):
 
         Grunt.takeDamage(self, data)
 
-    def setWeapon(self, weapon):
-        Grunt.setWeapon(self, 'FuelRod')
+    def set_weapon(self, weapon):
+        Grunt.set_weapon(self, 'HunterWeapon')
 
     def playRunForward(self):
         return

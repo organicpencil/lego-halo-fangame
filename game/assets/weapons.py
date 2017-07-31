@@ -339,22 +339,25 @@ class Sniper(AssaultRifle):
         return False
 
 
-class FuelRod:
+class HunterWeapon(AssaultRifle):
     # This one's kinda a hack because the weapon model is built into the hunter
     # TODO - Do something about this
-    name = 'FuelRod'
+    obj = 'weapon-hunter'
+    name = 'HunterWeapon'
     primary_delay = 2.0
 
     def __init__(self, user):
         self.user = user
         self.ob = None
+        self.barrel = None
         self.primary_next_time = 0.0
+        self.show()
 
     def primary(self, vector=None):
         now = bge.logic.getFrameTime()
         if now >= self.primary_next_time:
             self.primary_next_time = now + self.primary_delay
-            b = self.ob.scene.addObject('fuelrod_shot', self.user.barrel)
+            b = self.ob.scene.addObject('fuelrod_shot', self.barrel)
             b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
             if vector is not None:
                 b['vector'] = vector
@@ -389,4 +392,4 @@ weapons['AssaultRifle'] = AssaultRifle
 weapons['PlasmaRifle'] = PlasmaRifle
 weapons['Needler'] = Needler
 weapons['Sniper'] = Sniper
-weapons['FuelRod'] = FuelRod
+weapons['HunterWeapon'] = HunterWeapon
