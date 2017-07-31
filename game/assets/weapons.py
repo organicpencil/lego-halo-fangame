@@ -206,7 +206,8 @@ class AssaultRifle:
 
             target = None
             if self.user.player_id is not None:
-                target = self.user.auto_target['_component']
+                if self.user.auto_target is not None:
+                    target = self.user.auto_target['_component']
             else:
                 ai = bge.logic.game.ai.getAIController(self.user)
                 if hasattr(ai, 'target'):
