@@ -11,3 +11,12 @@ def fake(cont):
     owner.worldPosition = owner.worldPosition.lerp(p.worldPosition, 0.05)
     if owner.getDistanceTo(p) < 0.1:
         owner.endObject()
+
+
+def register(cont):
+    owner = cont.owner
+    if 'init' in owner:
+        return
+    owner['init'] = True
+
+    bge.logic.game.studs.append(owner)

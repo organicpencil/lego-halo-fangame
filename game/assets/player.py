@@ -43,6 +43,9 @@ class Chief(Controllable):
 
         self.setup_object()
 
+        # Handle collisions
+        owner.collisionCallbacks.append(self.collision)
+
         # Vehicle stuff
         self.vehicle = None
         self.disabled = False
@@ -139,40 +142,44 @@ class Chief(Controllable):
                 group.groupMembers[self.hat].endObject()
         """
 
-    def studcollision(self, other, point, normal):
-        # Only local players do stud detection
-        if 'stud' in other:
-            if len(bge.logic.getSceneList()) == 1:
-                # Technically possible to collide with stud on first frame
-                return
+    def collision(self, other, point, normal):
+        if normal[2] < -0.75:
+            self.on_ground = 2
 
-            # Play the sound
-            bge.logic.getCurrentScene().addObject('sound-coin')
+    def find_studs(self):
+        if len(bge.logic.getSceneList()) == 1:
+            # Technically possible to collide with stud on first frame
+            return
 
-            # Remove the stud
-            # Add score
-            hud = bge.logic.getSceneList()[1]
-            hud.objects['p1_studs']['Text'] += SCORES[other['stud']]
+        # Limits picking up 1 stud/tic but that's fine.
+        # May want to delay even more for effect.
+        owner = self.owner
+        for stud in bge.logic.game.studs:
+            dist = owner.getDistanceTo(stud)
+            if dist < 5.0:
+                # Check line of sight
+                #if owner.rayCastTo(stud) is stud:
+                # Play sound
+                bge.logic.getCurrentScene().addObject('sound-coin')
 
-            # Play pickup effect
-            pos = bge.logic.getCurrentScene().active_camera.getVectTo(other.worldPosition)[2]
-            pos = pos * hud.active_camera.worldOrientation.inverted()
-            #pos += hud.active_camera.worldPosition
-            obj = other.name.split('-dynamic')[0]
-            fake = hud.addObject(obj + '-fake')
-            fake.worldPosition = pos
-            fake['p'] = '1'
-            fake.scaling = [0.2, 0.2, 0.2]
-            hud.objects['p1_studcolor'].replaceMesh(obj)
+                # Add score
+                hud = bge.logic.getSceneList()[1]
+                hud.objects['p1_studs']['Text'] += SCORES[stud['stud']]
 
-            other.endObject()
-            # Workaround for delayed endObject bug
-            del other['stud']
+                # Pickup effect
+                pos = bge.logic.getCurrentScene().active_camera.getVectTo(stud.worldPosition)[2]
+                pos = pos * hud.active_camera.worldOrientation.inverted()
+                #pos += hud.active_camera.worldPosition
+                obj = stud.name.split('-dynamic')[0]
+                fake = hud.addObject(obj + '-fake')
+                fake.worldPosition = pos
+                fake['p'] = '1'
+                fake.scaling = [0.2, 0.2, 0.2]
+                hud.objects['p1_studcolor'].replaceMesh(obj)
 
-        else:
-            # Set ground timer
-            if normal[2] < -0.75:
-                self.on_ground = 2
+                stud.endObject()
+                bge.logic.game.studs.remove(stud)
+                break
 
     def takeDamage(self, data):
         if self.hp > 0:
@@ -307,9 +314,8 @@ class Chief(Controllable):
         self.player_id = player_id
         bge.logic.players[player_id] = self
 
-        # Allow picking up studs and other player-only triggers
+        # Enable player-only triggers
         self.owner['is_player'] = True
-        self.owner.collisionCallbacks.append(self.studcollision)
 
         # Unregister AI if applicable (returns False if not applicable)
         bge.logic.game.ai.unregister(self)
@@ -325,8 +331,7 @@ class Chief(Controllable):
             # Previously a player. Keep the ID in case it rejoins.
             bge.logic.players[self.player_id] = None
 
-            # Stop picking up studs
-            self.owner.collisionCallbacks.remove(self.studcollision)
+            # Disable player-only triggers
             del owner['is_player']
 
             # Unregister AI stub
@@ -388,6 +393,9 @@ class Chief(Controllable):
             self.set_controller_input()
             if not self.control_id:
                 return
+
+        # Find nearby studs
+        self.find_studs()
 
         # Mouse buttons
         """

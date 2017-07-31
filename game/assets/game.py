@@ -43,6 +43,7 @@ class Game:
         self.timers = []
         self.last_time = bge.logic.getFrameTime()
         self.ai = ai.AIManager()
+        self.studs = []
 
         # Workaround for delayed scene add
         self.init_hud = True
