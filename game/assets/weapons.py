@@ -38,6 +38,9 @@ class RedLaserShot:
             now = bge.logic.getFrameTime()
             if now > self.timer:
                 self.destroy()
+                return False
+
+        return True
 
     def sparks(self, hitPos):
         # Spawn spark particle
@@ -73,7 +76,7 @@ class BlueLaserShot(RedLaserShot):
 
 def timer_explode(self):
     # Apply the damage
-    if (not self.hitOb.invalid) and ('_component' in self.hitOb):
+    if (not self.hitOb.invalid) and ('_component' in self.hitOb) and (not self.owner.invalid):
         data = {}
         data['damage'] = 1
         if self.owner.invalid:
@@ -87,10 +90,10 @@ def timer_explode(self):
         if hasattr(comp, 'takeDamage'):
             comp.takeDamage(data)
 
+        self.destroy()
+
 
 class NeedlerShot(RedLaserShot):
-    particle = 'spark_emitter_red'
-
     def __init__(self, owner):
         RedLaserShot.__init__(self, owner)
         self.target = owner.get('target', None)
@@ -98,24 +101,24 @@ class NeedlerShot(RedLaserShot):
     def nothing(self):
         pass
 
+    def destroy(self):
+        # Make it explode for coolness
+        self.owner.scene.addObject('needler_explosion', self.owner)
+        self.owner.endObject()
+
     def on_hit(self, hitOb, hitPos, hitNormal):
-        if hitOb is not None:
-            self.hitOb = hitOb
-            self.hitPos = hitPos
-            self.hitNormal = hitNormal
+        self.hitOb = hitOb
+        self.hitPos = hitPos
+        self.hitNormal = hitNormal
 
-            self.owner.setParent(hitOb)
-            self.update = self.nothing
-            bge.logic.game.add_timer(1.0, timer_explode, self)
-
-        else:
-            # Timed out
-
-            # Make it explode for coolness
-            self.owner.scene.addObject('needler_explosion', self.owner)
+        self.owner.setParent(hitOb)
+        self.update = self.nothing
+        bge.logic.game.add_timer(1.0, timer_explode, self)
 
     def update(self):
-        RedLaserShot.update(self)
+        if not RedLaserShot.update(self):
+            return
+
         target = self.target
         if target is not None and not target.invalid:
             owner = self.owner
@@ -159,9 +162,7 @@ class FuelRodShot(RedLaserShot):
         owner.applyRotation((0.0, 0.1745, 0.0), True)
         owner.applyMovement((0.0, 60.0 * bge.logic.game.deltatime, 0.0), True)
 
-    def update_server(self):
         now = bge.logic.getFrameTime()
-
         if now > self.timer:
             self.destroy()
 
@@ -265,6 +266,13 @@ class Needler(AssaultRifle):
             b.worldPosition = self.ob.children[0].worldPosition
             b['deltaspeed'] = self.user.owner.getLinearVelocity(True)[1]
             b['vector'] = vector
+
+            if self.user.player_id is not None:
+                b['target'] = self.user.auto_target
+            else:
+                ai = bge.logic.game.ai.getAIController(self.user)
+                if ai.target is not None:
+                    b['target'] = ai.target.component.owner
 
             ## TODO - Fix homing needlers
             """
