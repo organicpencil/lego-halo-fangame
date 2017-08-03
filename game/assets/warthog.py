@@ -114,13 +114,16 @@ class Warthog:
     def setup(self, cont):
         ### Vehicle constraint setup
         ob = self.owner
+
         phys_ID = ob.getPhysicsId()
+        """
 
         constraint = bge.constraints.createConstraint(phys_ID, 0, 11)
         constraint_ID = constraint.getConstraintId()
 
         constraint = bge.constraints.getVehicleConstraint(constraint_ID)
-        self.constraint = constraint
+        """
+        self.constraint = constraint = bge.constraints.createVehicle(phys_ID)
 
         ### Tire setup
         self.tires = []
@@ -225,31 +228,31 @@ class Warthog:
                 #cont.activate('Camera')
                 #cont.activate('Scene')
 
-            keys = driver.keystate.bin
+            keys = driver.keystate
 
             # Forward
-            if keys[0] == '1':
+            if keys['forward']:
                 gas -= 1.0
 
             # Back
-            if keys[1] == '1':
+            if keys['back']:
                 gas += 1.0
 
             # Left
-            if keys[2] == '1':
+            if keys['left']:
                 steer += 1.0
 
             # Right
-            if keys[3] == '1':
+            if keys['right']:
                 steer -= 1.0
 
             # Brake (jump key)
-            if keys[4] == '1':
+            if keys['jump']:
                 brake = 1.0
                 gas = 0.0
 
             # Exit vehicle (interact key)
-            if keys[5] == '1':
+            if keys['interact']:
                 driver.exit_vehicle()
 
             # Sounds
@@ -351,9 +354,6 @@ class Turret:
         self.ai = AI_Turret(bge.logic.game.ai, self, 0)
         self.primary = False
 
-    def setPrimary(self, primary):
-        self.primary = primary
-
     def update(self, dt):
         self.barrel.applyRotation((-self.speed, 0.0, 0.0), True)
 
@@ -370,32 +370,30 @@ class Turret:
                 self.state = self.state_idle
             return
 
-        if not user.controlled:
+        if user.player_id is None:
             # Run the AI
             self.ai.team = user.team
             self.ai.state()
 
-        keys = user.keystate.bin
-
-        if user.controlled:
-            # Input and mouselook(?)
-            if keys[6] == '1':
+        else:
+            keys = user.keystate
+            if keys['shoot']:
                 self.primary = True
             else:
                 self.primary = False
 
             move = mathutils.Vector()
 
-            if keys[0] == '1':
+            if keys['forward']:
                 # Forward
                 move[1] += 1.0
-            if keys[1] == '1':
+            if keys['back']:
                 # Back
                 move[1] -= 1.0
-            if keys[2] == '1':
+            if keys['left']:
                 # Left
                 move[0] -= 1.0
-            if keys[3] == '1':
+            if keys['right']:
                 # Right
                 move[0] += 1.0
 
@@ -409,7 +407,7 @@ class Turret:
                 # Run the AI and overwrite firing settings
                 self.ai.team = user.team
                 self.ai.state()
-                self.setPrimary(True)
+                self.primary = True
 
         # Fire turret (primary)
         #if keys[6] == '1':
@@ -420,7 +418,7 @@ class Turret:
             self.state = self.state_idle
 
         # Exit vehicle (interact)
-        if keys[5] == '1':
+        if keys['interact']:
             user.exit_vehicle()
 
     def state_idle(self, dt):
