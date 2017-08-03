@@ -463,24 +463,31 @@ class Chief(Controllable):
                     bge.logic.getCurrentScene().addObject('sound-jump')
 
         if keystate['interact']:
-            # Interact
-            # Check for something
-            # TODO: Refactor this bit of code. Doesn't always work.
-            v = mathutils.Vector((0.0, 1.0, 0.0))
-            v = v * owner.worldOrientation.inverted()
-            v = v + owner.worldPosition
-            hitOb = owner.rayCast(v, owner, 3.0, 'interact')[0]
-            if hitOb is not None:
-                if self.enter_vehicle(hitOb['vehicle']):
-                    return
-
-            # Check for nearby buildables (slooooow)
+            # Check for objects of interest
+            nearest = None
+            neardist = 0.0
             for ob in bge.logic.getCurrentScene().objects:
                 if 'buildable' in ob:
                     dist = owner.getDistanceTo(ob)
                     if dist < 10.0:
                         ob['buildable'].build = True
                         # TODO: Play build animation
+                        # TODO: Do nearest buildable instead
+                        break
+                elif 'interact' in ob:
+                    dist = owner.getDistanceTo(ob)
+                    if dist < 20.0:
+                        result = owner.rayCast(ob, owner, 3.0)
+                        if result[0] is ob:
+                            dist = owner.getDistanceTo(result[1])
+                            if nearest is None or neardist > dist:
+                                nearest = ob
+                                neardist = dist
+
+            if nearest is not None:
+                # Interact with this object
+                if self.enter_vehicle(nearest['vehicle']):
+                    return
 
         # Animation
         if move.length:
