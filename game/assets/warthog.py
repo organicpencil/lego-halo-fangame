@@ -14,6 +14,10 @@ class Warthog:
         self.owner = cont.owner
         self.passengers = [None, None, None]  # driver, turret, passenger
         self.seats = []  # Set with object setup
+        self.owner['_component'] = self
+        self.team = -1
+        self.hp = 1
+        self.dead = False
 
         self.config()
         self.setup(cont)
@@ -27,6 +31,20 @@ class Warthog:
         self.started = False
 
         self.owner.collisionCallbacks.append(self.collision)
+
+    def takeDamage(self, data):
+        if self.dead:
+            return
+
+        # On hold until endObject delays are sorted out
+        """
+        self.hp -= 1
+        if self.hp < 1:
+            self.dead = True
+            scene = self.owner.scene
+            scene.addObject('Warthog destroyed', self.owner)
+            self.owner.endObject()
+        """
 
     def config(self):
         # Tire positions relative to carObj origin
