@@ -367,25 +367,6 @@ class Chief(Controllable):
     #def destroy(self):
     #    self.owner.endObject()
 
-    ## TODO - Get rid of these. Keeping for now because AI uses it.
-    def setForward(self, state):
-        self.keystate['forward'] = bool(state)
-
-    def setBackward(self, state):
-        self.keystate['back'] = bool(state)
-
-    def setLeft(self, state):
-        self.keystate['left'] = bool(state)
-
-    def setRight(self, state):
-        self.keystate['right'] = bool(state)
-
-    def setPrimary(self, state):
-        self.keystate['shoot'] = bool(state)
-
-    def setSecondary(self, state):
-        None
-
     def update_player_input(self):
         if self.player_id == 0:
             self.set_keyboard_input()

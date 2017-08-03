@@ -356,7 +356,7 @@ class AI_Standard:
 
     def shoot(self):
         self.component.target_position = None
-        self.component.setPrimary(False)
+        self.component.keystate['shoot'] = False
         if self.leader is not None:
             if self.check_leader_dist():
                 self.target = None
@@ -384,20 +384,20 @@ class AI_Standard:
                 self.next_reaction = now + random.uniform(self.reaction_time_min, self.reaction_time_max)
             elif now > self.next_reaction:
                 self.next_reaction = now + random.uniform(self.reaction_time_min, self.reaction_time_max)
-                self.component.setPrimary(True)
+                self.component.keystate['shoot'] = True
             """
             # Don't fire until mostly facing the target
             v = self.component.owner.getVectTo(target.component.owner)[2]
             if v[1] > 0.5:
-                self.component.setPrimary(True)
+                self.component.keystate['shoot'] = True
             """
         else:
             self.next_reaction = None
             self.state = self.shoot_nothing
 
     def pathfind(self):
-        self.component.setForward(False)
-        self.component.setRight(False)
+        self.component.keystate['forward'] = False
+        self.component.keystate['right'] = False
         # Check for different target
         target = self.check_for_enemy()
         if target is not None:
@@ -421,7 +421,7 @@ class AI_Standard:
         if self.path is None:
             # Door in the way or no more points
             self.path = None
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
             self.target = None
             self.state = self.pathfind_nothing
             return
@@ -436,7 +436,7 @@ class AI_Standard:
                 if self.target_last_position is not None:
                     self.lookAt(self.target_last_position)
                 self.path = None
-                self.component.setForward(False)
+                self.component.keystate['forward'] = False
                 self.target = None
                 self.state = self.pathfind_nothing
                 return
@@ -446,9 +446,9 @@ class AI_Standard:
         vec = self.lookAt(self.path[0])
         if vec < 0.5:
             # Wait until facing before moving
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
         else:
-            self.component.setForward(True)
+            self.component.keystate['forward'] = True
 
         # Check if running into someone
         vec = mathutils.Vector()
@@ -458,14 +458,14 @@ class AI_Standard:
         result = owner.rayCast(vec, owner, 2.5, 'obstacle', 0, 1)
         if result[0] is not None:
             # Push to the right
-            self.component.setRight(True)
-            self.component.setForward(False)
+            self.component.keystate['right'] = True
+            self.component.keystate['forward'] = False
         else:
-            self.component.setRight(False)
+            self.component.keystate['right'] = False
 
     def pathfind_to_leader(self):
-        self.component.setForward(False)
-        self.component.setRight(False)
+        self.component.keystate['forward'] = False
+        self.component.keystate['right'] = False
 
         if deadCheck(self.leader):
             self.leader = None
@@ -494,7 +494,7 @@ class AI_Standard:
         if self.path is None:
             # No path or door in the way
             self.path = None
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
             self.target = None
             self.state = self.pathfind_nothing
             return
@@ -509,7 +509,7 @@ class AI_Standard:
                 if self.target_last_position is not None:
                     self.lookAt(self.target_last_position)
                 self.path = None
-                self.component.setForward(False)
+                self.component.keystate['forward'] = False
                 self.target = None
                 self.state = self.pathfind_nothing
                 return
@@ -519,9 +519,9 @@ class AI_Standard:
         vec = self.lookAt(self.path[0])
         if vec < 0.5:
             # Wait until facing before moving
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
         else:
-            self.component.setForward(True)
+            self.component.keystate['forward'] = True
 
         # Check if running into someone
         vec = mathutils.Vector()
@@ -531,10 +531,10 @@ class AI_Standard:
         result = owner.rayCast(vec, owner, 2.5, 'obstacle', 0, 1)
         if result[0] is not None:
             # Push to the right
-            self.component.setRight(True)
-            self.component.setForward(False)
+            self.component.keystate['right'] = True
+            self.component.keystate['forward'] = False
         else:
-            self.component.setRight(False)
+            self.component.keystate['right'] = False
 
     def get_path(self, start, end, force=False):
         navmesh = self.manager.navmesh
@@ -577,7 +577,7 @@ class AI_Standard:
 
         self.path = path
         self.component.target_position = None
-        self.component.setPrimary(False)
+        self.component.keystate['shoot'] = False
         self.location = location.copy()
         self.location_dist = 3.0
         self.location_finished = self.idle
@@ -601,8 +601,8 @@ class AI_Standard:
         self.location_finished = self.get_in_vehicle
 
     def forget_location(self):
-        self.component.setForward(False)
-        self.component.setRight(False)
+        self.component.keystate['forward'] = False
+        self.component.keystate['right'] = False
         self.path = None
         self.path_update = False
         self.path_target = None
@@ -611,8 +611,8 @@ class AI_Standard:
         self.state = self.idle
 
     def pathfind_to_location(self):
-        self.component.setForward(False)
-        self.component.setRight(False)
+        self.component.keystate['forward'] = False
+        self.component.keystate['right'] = False
 
         owner = self.component.owner
 
@@ -621,7 +621,7 @@ class AI_Standard:
 
         if self.path is None:
             # There's a door in the way
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
             self.target = None
             self.state = self.idle_nothing
             return
@@ -634,7 +634,7 @@ class AI_Standard:
             self.path.popleft()
             if not len(self.path):
                 self.path = None
-                self.component.setForward(False)
+                self.component.keystate['forward'] = False
                 self.target = None
                 self.state = self.location_finished
                 if self.timed_lerp:
@@ -646,9 +646,9 @@ class AI_Standard:
         vec = self.lookAt(self.path[0])
         if vec < 0.5:
             # Wait until facing before moving
-            self.component.setForward(False)
+            self.component.keystate['forward'] = False
         else:
-            self.component.setForward(True)
+            self.component.keystate['forward'] = True
 
         # Check if running into someone
         vec = mathutils.Vector()
@@ -658,18 +658,18 @@ class AI_Standard:
         result = owner.rayCast(vec, owner, 2.5, 'obstacle', 0, 1)
         if result[0] is not None:
             # Push to the right
-            self.component.setRight(True)
-            self.component.setForward(False)
+            self.component.keystate['right'] = True
+            self.component.keystate['forward'] = False
         else:
-            self.component.setRight(False)
+            self.component.keystate['right'] = False
 
     def stay_at_location(self):
         # Shoot at stuff without moving
         target = self.check_for_enemy()
         if target is None:
-            self.component.keystate['primary'] = False
+            self.component.keystate['shoot'] = False
         else:
-            self.component.keystate['primary'] = True
+            self.component.keystate['shoot'] = True
             self.lookAt(target.component.owner)
 
     def get_in_vehicle(self):
