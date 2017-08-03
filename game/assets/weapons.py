@@ -90,6 +90,7 @@ def timer_explode(self):
         if hasattr(comp, 'takeDamage'):
             comp.takeDamage(data)
 
+    if not self.owner.invalid:
         self.destroy()
 
 
