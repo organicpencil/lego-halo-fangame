@@ -233,7 +233,7 @@ class Chief(Controllable):
                     # has been nuked. Only delete if the group has no props.
                     ## TODO - Also check for logic bricks before deleting
                     group = owner.groupObject
-                    if len(group.getPropertyNames()):
+                    if len(group.getPropertyNames()) or len(group.sensors) or len(group.controllers) or len(group.actuators):
                         group['dead'] = True
                     else:
                         group.endObject()
