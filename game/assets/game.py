@@ -4,6 +4,9 @@ import bge
 import ai
 
 
+PLAYER_COLORS = [[0, 1, 0, 1], [0, 0, 1, 1]]
+
+
 def exception_handler(type_, value, tb):
     # print the exception
     import traceback
@@ -45,6 +48,9 @@ class Game:
         self.ai = ai.AIManager()
         self.studs = []
 
+        # Offscreen player icons
+        self.offscreen_icons = [None, None]
+
         # Workaround for delayed scene add
         self.init_hud = True
         self.deltatime = 1.0 / 60.0
@@ -71,7 +77,7 @@ class Game:
             # Icon
             icon = hud.objects['p1_icon']
             if not len(icon.children):
-                icon.color = [0, 1, 0, 1]
+                icon.color = PLAYER_COLORS[0]
                 ic = hud.addObject(hud.objectsInactive[player.icon], icon)
                 ic.worldPosition[1] -= 0.1
                 ic.setParent(icon)
@@ -105,7 +111,7 @@ class Game:
             # Icon
             icon = hud.objects['p2_icon']
             if not len(icon.children):
-                icon.color = [0, 0, 1, 1]
+                icon.color = PLAYER_COLORS[1]
                 ic = hud.addObject(hud.objectsInactive[player.icon], icon)
                 ic.worldPosition[1] -= 0.1
                 ic.setParent(icon)
@@ -156,6 +162,38 @@ class Game:
         for b in list(self.timers):
             if b.update(dt):
                 self.timers.remove(b)
+
+        # Offscreen player icons
+        hud = bge.logic.getSceneList()[1]
+        icons = self.offscreen_icons
+        for i in range(0, 2):
+            player = bge.logic.players[i]
+            if player is not None and not player.owner.invalid:
+                pos = list(bge.logic.getCurrentScene().active_camera.getScreenPosition(player.owner))
+                ## TODO - Fix breakage at different aspect ratios
+                if pos[0] < 0.0 or pos[0] > 1.0 or pos[1] < 0.0 or pos[1] > 1.0:
+                    pos[0] = min(pos[0], 0.95)
+                    pos[0] = max(pos[0], 0.05)
+                    pos[1] = min(pos[1], 0.95)
+                    pos[1] = max(pos[1], 0.05)
+
+                    if icons[i] is None:
+                        icons[i] = icon = hud.addObject(hud.objectsInactive['player_icon'])
+                        icon.scaling *= 0.5
+                        icon.color = PLAYER_COLORS[i]
+                        ic = hud.addObject(hud.objectsInactive[player.icon], icon)
+                        ic.worldPosition[1] -= 0.1
+                        ic.setParent(icon)
+                    else:
+                        icon = icons[i]
+
+                    vec = [0.0, -0.1, 0.0]
+                    vec[0] = -3.0 + (pos[0] * 6.0)
+                    vec[2] = -1.7 + ((1.0 - pos[1]) * 3.4)
+                    icon.worldPosition = vec
+                elif icons[i] is not None:
+                    icons[i].endObject()
+                    icons[i] = None
 
 
 class Timer:
