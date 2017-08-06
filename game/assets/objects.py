@@ -44,10 +44,13 @@ class Controllable:
         if not self.control_id:
             ## TODO - Needs rework
             if bge.logic.joysticks[0] is not None:
+                #print (bge.logic.joysticks[0].activeButtons)
                 # Press start to join
-                if 7 in bge.logic.joysticks[0].activeButtons:
+                # Start button used to be 7. Confused...
+                if 6 in bge.logic.joysticks[0].activeButtons:
                     self.using_controller = True
-                    self.become_player()
+                    self.become_player(1)
+                    self.control_id = 1
 
                     old_ai = bge.logic.game.ai.getAIController(self)
                     squad = list(old_ai.squad)
@@ -69,7 +72,8 @@ class Controllable:
 
             return
 
-        controller_id = self.controlled - 2
+        controller_id = self.control_id - 1
+        #print (controller_id)
         joystick = bge.logic.joysticks[controller_id]
         if joystick is not None:
             keystate = self.keystate
