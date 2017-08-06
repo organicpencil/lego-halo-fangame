@@ -16,6 +16,10 @@ class RedLaserShot:
 
     def destroy(self):
         self.owner.endObject()
+        self.update = self.nothing
+
+    def nothing(self):
+        pass
 
     def update(self):
         owner = self.owner
@@ -62,10 +66,8 @@ class RedLaserShot:
             if hasattr(comp, 'takeDamage'):
                 comp.takeDamage(data)
 
-        elif 'destructible' in hitOb:
-            obj = hitOb['parts']
-            ob = hitOb.scene.addObject(obj, hitOb)
-            hitOb.endObject()
+        elif 'destroy' in hitOb:
+            hitOb['destroy'] = True
 
         self.destroy()
 

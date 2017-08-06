@@ -7,6 +7,7 @@ class Buildable:
         self.parts = []
         self.rebuild = 0
         self.build = False
+        owner.suspendDynamics()
 
         for c in list(owner.children):
             self.parts.append(c)
@@ -44,7 +45,10 @@ class Buildable:
                     self.rebuild += 1
 
             else:
-                owner.scene.addObject(owner['object'])
+                group = owner.groupObject
+                if group is not None:
+                    owner.scene.addObject(owner['object'], group)
+                    group.endObject()
                 owner.endObject()
 
 
