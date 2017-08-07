@@ -486,7 +486,7 @@ class Chief(Controllable):
 
             if nearest is not None:
                 # Interact with this object
-                if 'vehicle' in nearest:
+                if 'vehicle' in nearest and not nearest['vehicle'].dead:
                     if self.enter_vehicle(nearest['vehicle']):
                         return
 
@@ -593,6 +593,16 @@ class Chief(Controllable):
 
         ai = bge.logic.game.ai.getAIController(self)
 
+        i = 0
+        for p in vehicle.passengers:
+            if p is None:
+                i += 1
+
+        create_ai = False
+        if i == len(vehicle.passengers):
+            # First to enter
+            create_ai = True
+
         for i in range(0, len(vehicle.passengers)):
             if vehicle.passengers[i] is None:
                 self.playIdle()
@@ -609,6 +619,11 @@ class Chief(Controllable):
 
                 self.weapon.hide()
 
+                if create_ai:
+                    # For being targeted only
+                    vehicle.team = self.team
+                    bge.logic.game.ai.register(vehicle, self.team, None)
+
                 return True
 
         return False
@@ -621,6 +636,15 @@ class Chief(Controllable):
         if other is None:
             # Not in vehicle
             return False
+
+        i = 0
+        for p in self.vehicle.passengers:
+            if p is None:
+                i += 1
+
+        if i == 1:
+            # Last to leave
+            bge.logic.game.ai.unregister(self.vehicle)
 
         self.enter_timer = 30
 

@@ -122,6 +122,13 @@ def deadCheck(ai):
     component = ai.component
     if component.hp < 1 or component.owner.invalid:  # or component.disabled:
         return True
+
+    # Forget target if it jumped in a vehicle, will target vehicle or whatever
+    # is closest instead.
+    if hasattr(component, 'vehicle'):
+        if component.vehicle is not None:
+            return True
+
     return False
 
 

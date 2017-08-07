@@ -45,10 +45,9 @@ class Buildable:
                     self.rebuild += 1
 
             else:
-                group = owner.groupObject
-                if group is not None:
-                    owner.scene.addObject(owner['object'], group)
-                    group.endObject()
+                owner.scene.addObject(owner['object'], owner)
+                if owner.groupObject is not None:
+                    owner.groupObject.endObject()
                 owner.endObject()
 
 

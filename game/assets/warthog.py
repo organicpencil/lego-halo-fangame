@@ -16,8 +16,12 @@ class Warthog:
         self.seats = []  # Set with object setup
         self.owner['_component'] = self
         self.team = -1
-        self.hp = 1
+        self.hp = 10
         self.dead = False
+
+        # AI stuff
+        self.moving = False
+        self.loudtimer = 0
 
         self.config()
         self.setup(cont)
@@ -33,18 +37,31 @@ class Warthog:
         self.owner.collisionCallbacks.append(self.collision)
 
     def takeDamage(self, data):
+        self.hp -= data['damage']
+
+    def _takeDamage(self):
         if self.dead:
             return
 
-        # On hold until endObject delays are sorted out
-        """
-        self.hp -= 1
         if self.hp < 1:
             self.dead = True
-            scene = self.owner.scene
-            scene.addObject('Warthog destroyed', self.owner)
-            self.owner.endObject()
-        """
+
+            # Kick out passengers
+            for p in self.passengers:
+                if p is not None:
+                    p.enter_timer = 0
+                    p.exit_vehicle()
+
+            owner = self.owner
+            scene = owner.scene
+            scene.addObject('warthog-destroyed', owner)
+            if owner.groupObject is not None:
+                owner.groupObject.endObject()
+            owner.endObject()
+
+            # Ensure tires are destroyed, otherwise they sometimes linger
+            for t in self.tires:
+                t.endObject()
 
     def config(self):
         # Tire positions relative to carObj origin
@@ -354,6 +371,9 @@ class Warthog:
         # Suspension effect
         for i in range(0, 4):
             self.suspensions[i].worldPosition = self.tires[i].worldPosition
+
+        # Apply backlogged damage
+        self._takeDamage()
 
 
 class Turret:
