@@ -1,0 +1,7 @@
+All Python scripts are GPL v3 (see LICENSE_GPL3.txt)
+
+Art is free to use for non-commercial endeavors so long as you credit the source.
+Minifig decals: izaak94 (http://izaak94.deviantart.com/)
+Models + animations: legohalppl
+
+With exceptions noted above, all other audio and textures files were pulled from Microsoft's Halo games under the terms of fair use.
