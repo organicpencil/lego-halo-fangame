@@ -486,8 +486,9 @@ class Chief(Controllable):
 
             if nearest is not None:
                 # Interact with this object
-                if self.enter_vehicle(nearest['vehicle']):
-                    return
+                if 'vehicle' in nearest:
+                    if self.enter_vehicle(nearest['vehicle']):
+                        return
 
         # Animation
         if move.length:
