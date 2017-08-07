@@ -19,6 +19,8 @@ git submodule update --init --recursive
 
 To play: Open Game.blend (or a level directly from the scenes folder) and press "P" with the mouse in the 3D view.
 
+Requires a recent build of UPBGE https://github.com/upbge/blender
+
 **Multiplayer**  
 Player 2 can drop in with a controller by pressing start.
 
