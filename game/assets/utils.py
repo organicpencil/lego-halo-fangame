@@ -1,40 +1,25 @@
+import bge
+
+
 def key_pressed(key):
-    import bge  # Why am I importing bge here? Might have been a pycomponent bug
-    if bge.logic.KX_INPUT_JUST_ACTIVATED in bge.logic.keyboard.inputs[key].queue:
-        return True
-    return False
+    return bge.logic.keyboard.events[key] == bge.logic.KX_INPUT_JUST_ACTIVATED
 
 
 def key_released(key):
-    import bge
-    if bge.logic.KX_INPUT_JUST_RELEASED in bge.logic.keyboard.inputs[key].queue:
-        return True
-    return False
+    return bge.logic.keyboard.events[key] == bge.logic.KX_INPUT_JUST_RELEASED
 
 
 def key_held(key):
-    import bge
-    if bge.logic.KX_INPUT_ACTIVE in bge.logic.keyboard.inputs[key].status:
-        return True
-    return False
+    return bge.logic.keyboard.events[key] == bge.logic.KX_INPUT_ACTIVE
 
 
 def mouse_pressed(key):
-    import bge
-    if bge.logic.KX_INPUT_ACTIVE in bge.logic.mouse.inputs[key].queue:
-        return True
-    return False
+    return bge.logic.mouse.events[key] == bge.logic.KX_INPUT_JUST_ACTIVATED
 
 
 def mouse_released(key):
-    import bge
-    if bge.logic.KX_INPUT_JUST_RELEASED in bge.logic.mouse.inputs[key].queue:
-        return True
-    return False
+    return bge.logic.mouse.events[key] == bge.logic.KX_INPUT_JUST_RELEASED
 
 
 def mouse_held(key):
-    import bge
-    if bge.logic.KX_INPUT_ACTIVE in bge.logic.mouse.inputs[key].status:
-        return True
-    return False
+    return bge.logic.mouse.events[key] == bge.logic.KX_INPUT_JUST_ACTIVE

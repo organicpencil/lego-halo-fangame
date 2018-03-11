@@ -151,20 +151,17 @@ class Warthog:
         ob = self.owner
 
         phys_ID = ob.getPhysicsId()
-        """
-
         constraint = bge.constraints.createConstraint(phys_ID, 0, 11)
         constraint_ID = constraint.getConstraintId()
 
-        constraint = bge.constraints.getVehicleConstraint(constraint_ID)
-        """
-        self.constraint = constraint = bge.constraints.createVehicle(phys_ID)
+        self.constraint = constraint = bge.constraints.getVehicleConstraint(constraint_ID)
 
         ### Tire setup
         self.tires = []
         self.suspensions = []
         tirelist = ['FL', 'FR', 'RL', 'RR']
         for i in range(0, 4):
+            print(ob.children)
             tire_ob = ob.children['warthog-tire-' + tirelist[i]]
             tire_ob.removeParent()
             self.tires.append(tire_ob)
@@ -391,6 +388,7 @@ class Turret:
         self.state = self.state_idle
         self.ai = AI_Turret(bge.logic.game.ai, self, 0)
         self.primary = False
+        self.keystate = {'shoot': False, 'interact': False}
 
     def update(self, dt):
         self.barrel.applyRotation((-self.speed, 0.0, 0.0), True)
@@ -408,17 +406,17 @@ class Turret:
                 self.state = self.state_idle
             return
 
+        # Hastily thrown together after an unfinished refactor, likely confusing
+        keys = None
         if user.player_id is None:
             # Run the AI
             self.ai.team = user.team
             self.ai.state()
-
+            keys = self.keystate
+            self.primary = keys['shoot']
         else:
             keys = user.keystate
-            if keys['shoot']:
-                self.primary = True
-            else:
-                self.primary = False
+            self.primary = keys['shoot']
 
             move = mathutils.Vector()
 
@@ -487,10 +485,10 @@ class Turret:
         else:
             if self.shoot_timer <= 0.0:
                 # Shoot
-                delta = max(0.0, self.hog.owner.getLinearVelocity(True)[1])
-                speed = delta + 30.0
-                weapons.Laser(None, ref=self.spawn, args={'speed': speed})
                 self.shoot_timer = 0.2
+                delta = max(0.0, self.hog.owner.getLinearVelocity(True)[1])
+                b = self.spawn.scene.addObject("laser_red", self.spawn)
+                b['deltaspeed'] = delta
 
     def state_cooldown(self, dt):
         self.hog.owner['firing'] = False

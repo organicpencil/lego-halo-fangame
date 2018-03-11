@@ -1,30 +1,8 @@
 THIS IS A FAN GAME.  We are not associated with Microsoft (owners of the Halo franchise) or The Lego Group.
 
-**Standalone binaries**  
-TODO
-
-**Running from source**  
-First [obtain a recent build of UPBGE](https://download.upbge.org/)
-
-Then clone the repository:
-```
-git clone https://github.com/pqftgs/lego-halo-fangame.git
-cd lego-halo-fangame
-```
-
-And finally download submodule(s):
-```
-git submodule update --init --recursive
-```
-
 To play: Open Game.blend (or a level directly from the scenes folder) and press "P" with the mouse in the 3D view.
 
-Requires a recent build of UPBGE https://github.com/upbge/blender
-
-**Multiplayer**  
-Player 2 can drop in with a controller by pressing start.
-
-Online multiplayer does exist but is currently limited in functionality.
+Made with Blender 2.79
 
 **Main contributors**  
 legohaloppl - project founder, modeller, animator  
